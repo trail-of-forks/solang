@@ -17,6 +17,7 @@ use tempfile::tempdir;
 use wasm_opt::OptimizationOptions;
 
 use crate::codegen::{cfg::ReturnCode, Options};
+use crate::emit::stylus;
 use crate::emit::{polkadot, TargetRuntime};
 use crate::emit::{solana, BinaryOp, Generate};
 use crate::linker::link;
@@ -52,7 +53,10 @@ macro_rules! emit_context {
         #[allow(unused_macros)]
         macro_rules! byte_ptr {
             () => {
-                $binary.context.i8_type().ptr_type(AddressSpace::default())
+                $binary
+                    .context
+                    .i8_type()
+                    .ptr_type(inkwell::AddressSpace::default())
             };
         }
 
@@ -161,8 +165,11 @@ pub struct Binary<'a> {
     code: RefCell<Vec<u8>>,
     pub(crate) selector: GlobalValue<'a>,
     pub(crate) calldata_len: GlobalValue<'a>,
+    // `scratch_len` and `scratch` are used by Polkadot.
     pub(crate) scratch_len: Option<GlobalValue<'a>>,
     pub(crate) scratch: Option<GlobalValue<'a>>,
+    // `return_code` is used by Stylus.
+    pub(crate) return_code: Option<GlobalValue<'a>>,
     pub(crate) parameters: Option<PointerValue<'a>>,
     pub(crate) return_values: HashMap<ReturnCode, IntValue<'a>>,
     /// No initializer for vector_new
@@ -191,6 +198,7 @@ impl<'a> Binary<'a> {
             Target::Soroban => {
                 soroban::SorobanTarget::build(context, &std_lib, contract, ns, opt, _contract_no)
             }
+            Target::Stylus => stylus::StylusTarget::build(context, &std_lib, contract, ns, opt),
             _ => unimplemented!("target not implemented"),
         }
     }
@@ -432,6 +440,7 @@ impl<'a> Binary<'a> {
             calldata_len,
             scratch: None,
             scratch_len: None,
+            return_code: None,
             parameters: None,
             return_values,
             vector_init_empty: context
