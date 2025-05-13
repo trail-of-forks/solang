@@ -73,7 +73,7 @@ impl fmt::Display for BinaryOp {
 pub trait TargetRuntime<'a> {
     fn get_storage_int(
         &self,
-        bin: &Binary<'a>,
+        binary: &Binary<'a>,
         function: FunctionValue,
         slot: PointerValue<'a>,
         ty: IntType<'a>,
@@ -95,7 +95,7 @@ pub trait TargetRuntime<'a> {
         ty: &ast::Type,
         existing: bool,
         slot: &mut IntValue<'a>,
-        dest: BasicValueEnum<'a>,
+        value: BasicValueEnum<'a>,
         function: FunctionValue<'a>,
         storage_type: &Option<StorageType>,
     );
@@ -289,8 +289,8 @@ pub trait TargetRuntime<'a> {
         bin: &Binary<'b>,
         function: FunctionValue<'b>,
         hash: HashTy,
-        string: PointerValue<'b>,
-        length: IntValue<'b>,
+        input: PointerValue<'b>,
+        input_len: IntValue<'b>,
     ) -> IntValue<'b>;
 
     /// Emit event
