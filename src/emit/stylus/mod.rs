@@ -53,6 +53,7 @@ impl StylusTarget {
         target.emit_dispatch(&mut binary, ns);
 
         binary.internalize(&[
+            "contract_address",
             "log_txt",
             "msg_reentrant",
             "msg_value",
@@ -116,6 +117,7 @@ impl StylusTarget {
             };
         }
 
+        external!("contract_address", void_type, u8_ptr);
         external!("log_txt", void_type, u8_ptr, i32_val);
         external!("msg_reentrant", i32_type);
         external!("msg_value", void_type, i32_val);
