@@ -1,4 +1,4 @@
-This is a fork of the Solang compiler that aims to add support for [Stylus](https://arbitrum.questbook.app/dashboard/?chainId=10&proposalId=6771b86f8f4a6bf405ad6d8c&grantId=671a105a2047c84bb8a73770).
+This is a fork of the Solang compiler that aims to support [Stylus](https://arbitrum.questbook.app/dashboard/?chainId=10&proposalId=6771b86f8f4a6bf405ad6d8c&grantId=671a105a2047c84bb8a73770).
 
 Progress is tracked in issue [#4](https://github.com/trail-of-forks/solang/issues/4).
 
