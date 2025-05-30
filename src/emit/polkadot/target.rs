@@ -9,7 +9,7 @@ use crate::emit::polkadot::PolkadotTarget;
 use crate::emit::storage::StorageSlot;
 use crate::emit::{ContractArgs, TargetRuntime, Variable};
 use crate::sema::ast;
-use crate::sema::ast::{Function, Namespace, Type};
+use crate::sema::ast::{Function, Type};
 use crate::{codegen, emit_context};
 use inkwell::types::{BasicType, BasicTypeEnum, IntType};
 use inkwell::values::BasicValue;
@@ -48,12 +48,11 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         binary: &Binary<'a>,
         _function: FunctionValue,
         slot: PointerValue<'a>,
-        ns: &ast::Namespace,
     ) -> PointerValue<'a> {
         emit_context!(binary);
 
         // This is the size of the external function struct
-        let len = ns.address_length + 4;
+        let len = binary.ns.address_length + 4;
 
         let ef = call!(
             "__malloc",
@@ -301,7 +300,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         slot: IntValue<'a>,
         index: IntValue<'a>,
         loc: Loc,
-        ns: &Namespace,
     ) -> IntValue<'a> {
         emit_context!(binary);
 
@@ -364,9 +362,8 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             self,
             "storage array index out of bounds".to_string(),
             Some(loc),
-            ns,
         );
-        let (revert_out, revert_out_len) = binary.panic_data_const(ns, PanicCode::ArrayIndexOob);
+        let (revert_out, revert_out_len) = binary.panic_data_const(PanicCode::ArrayIndexOob);
         self.assert_failure(binary, revert_out, revert_out_len);
 
         binary.builder.position_at_end(retrieve_block);
@@ -397,7 +394,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         slot: IntValue,
         index: IntValue,
         val: IntValue,
-        ns: &Namespace,
         loc: Loc,
     ) {
         emit_context!(binary);
@@ -456,13 +452,8 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             .unwrap();
 
         binary.builder.position_at_end(bang_block);
-        binary.log_runtime_error(
-            self,
-            "storage index out of bounds".to_string(),
-            Some(loc),
-            ns,
-        );
-        let (revert_out, revert_out_len) = binary.panic_data_const(ns, PanicCode::ArrayIndexOob);
+        binary.log_runtime_error(self, "storage index out of bounds".to_string(), Some(loc));
+        let (revert_out, revert_out_len) = binary.panic_data_const(PanicCode::ArrayIndexOob);
         self.assert_failure(binary, revert_out, revert_out_len);
 
         binary.builder.position_at_end(retrieve_block);
@@ -498,7 +489,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         _ty: &ast::Type,
         slot: IntValue<'a>,
         val: Option<BasicValueEnum<'a>>,
-        _ns: &ast::Namespace,
     ) -> BasicValueEnum<'a> {
         emit_context!(binary);
 
@@ -584,7 +574,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         ty: &ast::Type,
         slot: IntValue<'a>,
         load: bool,
-        ns: &ast::Namespace,
         loc: Loc,
     ) -> Option<BasicValueEnum<'a>> {
         emit_context!(binary);
@@ -643,13 +632,8 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             .unwrap();
 
         binary.builder.position_at_end(bang_block);
-        binary.log_runtime_error(
-            self,
-            "pop from empty storage array".to_string(),
-            Some(loc),
-            ns,
-        );
-        let (revert_out, revert_out_len) = binary.panic_data_const(ns, PanicCode::EmptyArrayPop);
+        binary.log_runtime_error(self, "pop from empty storage array".to_string(), Some(loc));
+        let (revert_out, revert_out_len) = binary.panic_data_const(PanicCode::EmptyArrayPop);
         self.assert_failure(binary, revert_out, revert_out_len);
 
         binary.builder.position_at_end(retrieve_block);
@@ -676,7 +660,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             Some(
                 binary
                     .builder
-                    .build_load(binary.llvm_type(ty, ns), offset, "popped_value")
+                    .build_load(binary.llvm_type(ty), offset, "popped_value")
                     .unwrap(),
             )
         } else {
@@ -700,7 +684,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         _function: FunctionValue,
         slot: IntValue<'a>,
         _ty: &ast::Type,
-        _ns: &ast::Namespace,
     ) -> IntValue<'a> {
         emit_context!(binary);
 
@@ -773,7 +756,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         src: PointerValue,
         length: IntValue,
         dest: PointerValue,
-        _ns: &ast::Namespace,
     ) {
         emit_context!(binary);
 
@@ -832,14 +814,13 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         encoded_args: BasicValueEnum<'b>,
         encoded_args_len: BasicValueEnum<'b>,
         contract_args: ContractArgs<'b>,
-        ns: &ast::Namespace,
         _loc: Loc,
     ) {
         emit_context!(binary);
 
-        let created_contract = &ns.contracts[contract_no];
+        let created_contract = &binary.ns.contracts[contract_no];
 
-        let code = created_contract.emit(ns, binary.options, contract_no);
+        let code = created_contract.emit(binary.ns, binary.options, contract_no);
 
         let (scratch_buf, scratch_len) = scratch_buf!();
 
@@ -866,12 +847,12 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
         let value_ptr = binary
             .builder
-            .build_alloca(binary.value_type(ns), "balance")
+            .build_alloca(binary.value_type(), "balance")
             .unwrap();
 
         let value = contract_args
             .value
-            .unwrap_or_else(|| binary.value_type(ns).const_zero());
+            .unwrap_or_else(|| binary.value_type().const_zero());
         binary.builder.build_store(value_ptr, value).unwrap();
 
         // code hash
@@ -888,7 +869,10 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
         binary
             .builder
-            .build_store(address_len_ptr, i32_const!(ns.address_length as u64 * 32))
+            .build_store(
+                address_len_ptr,
+                i32_const!(binary.ns.address_length as u64 * 32),
+            )
             .unwrap();
 
         binary
@@ -930,7 +914,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         address: Option<BasicValueEnum<'b>>,
         contract_args: ContractArgs<'b>,
         call_type: ast::CallTy,
-        ns: &ast::Namespace,
         loc: Loc,
     ) {
         emit_context!(binary);
@@ -946,7 +929,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             ast::CallTy::Regular => {
                 let value_ptr = binary
                     .builder
-                    .build_alloca(binary.value_type(ns), "balance")
+                    .build_alloca(binary.value_type(), "balance")
                     .unwrap();
                 binary
                     .builder
@@ -1023,7 +1006,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary.builder.position_at_end(not_found_block);
                 let msg = "delegatecall callee is not a contract account";
-                binary.log_runtime_error(self, msg.into(), Some(loc), ns);
+                binary.log_runtime_error(self, msg.into(), Some(loc));
                 binary
                     .builder
                     .build_unconditional_branch(done_block)
@@ -1069,7 +1052,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         success: Option<&mut BasicValueEnum<'b>>,
         address: PointerValue<'b>,
         value: IntValue<'b>,
-        ns: &ast::Namespace,
         _loc: Loc,
     ) {
         emit_context!(binary);
@@ -1077,7 +1059,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         // balance is a u128
         let value_ptr = binary
             .builder
-            .build_alloca(binary.value_type(ns), "balance")
+            .build_alloca(binary.value_type(), "balance")
             .unwrap();
         binary.builder.build_store(value_ptr, value).unwrap();
 
@@ -1086,9 +1068,9 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             "transfer",
             &[
                 address.into(),
-                i32_const!(ns.address_length as u64).into(),
+                i32_const!(binary.ns.address_length as u64).into(),
                 value_ptr.into(),
-                i32_const!(ns.value_length as u64).into()
+                i32_const!(binary.ns.value_length as u64).into()
             ]
         )
         .try_as_basic_value()
@@ -1119,12 +1101,12 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
     }
 
     /// Polkadot value is usually 128 bits
-    fn value_transferred<'b>(&self, binary: &Binary<'b>, ns: &ast::Namespace) -> IntValue<'b> {
+    fn value_transferred<'b>(&self, binary: &Binary<'b>) -> IntValue<'b> {
         emit_context!(binary);
 
         let value = binary
             .builder
-            .build_alloca(binary.value_type(ns), "value")
+            .build_alloca(binary.value_type(), "value")
             .unwrap();
 
         let value_len = binary
@@ -1134,7 +1116,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
         binary
             .builder
-            .build_store(value_len, i32_const!(ns.value_length as u64))
+            .build_store(value_len, i32_const!(binary.ns.value_length as u64))
             .unwrap();
 
         call!(
@@ -1145,18 +1127,18 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
         binary
             .builder
-            .build_load(binary.value_type(ns), value, "value_transferred")
+            .build_load(binary.value_type(), value, "value_transferred")
             .unwrap()
             .into_int_value()
     }
 
     /// Terminate execution, destroy contract and send remaining funds to addr
-    fn selfdestruct<'b>(&self, binary: &Binary<'b>, addr: ArrayValue<'b>, ns: &ast::Namespace) {
+    fn selfdestruct<'b>(&self, binary: &Binary<'b>, addr: ArrayValue<'b>) {
         emit_context!(binary);
 
         let address = binary
             .builder
-            .build_alloca(binary.address_type(ns), "address")
+            .build_alloca(binary.address_type(), "address")
             .unwrap();
 
         binary.builder.build_store(address, addr).unwrap();
@@ -1175,7 +1157,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         hash: HashTy,
         input: PointerValue<'b>,
         input_len: IntValue<'b>,
-        ns: &ast::Namespace,
     ) -> IntValue<'b> {
         emit_context!(binary);
 
@@ -1197,10 +1178,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         // bytes32 needs to reverse bytes
         let temp = binary
             .builder
-            .build_alloca(
-                binary.llvm_type(&ast::Type::Bytes(hashlen as u8), ns),
-                "hash",
-            )
+            .build_alloca(binary.llvm_type(&ast::Type::Bytes(hashlen as u8)), "hash")
             .unwrap();
 
         call!(
@@ -1211,7 +1189,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         binary
             .builder
             .build_load(
-                binary.llvm_type(&ast::Type::Bytes(hashlen as u8), ns),
+                binary.llvm_type(&ast::Type::Bytes(hashlen as u8)),
                 temp,
                 "hash",
             )
@@ -1314,7 +1292,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         expr: &codegen::Expression,
         vartab: &HashMap<usize, Variable<'b>>,
         function: FunctionValue<'b>,
-        ns: &ast::Namespace,
     ) -> BasicValueEnum<'b> {
         emit_context!(binary);
 
@@ -1456,14 +1433,14 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
                 let gas = if args.is_empty() {
                     binary.context.i64_type().const_int(1, false)
                 } else {
-                    expression(self, binary, &args[0], vartab, function, ns).into_int_value()
+                    expression(self, binary, &args[0], vartab, function).into_int_value()
                 };
 
                 let (scratch_buf, scratch_len) = scratch_buf!();
 
                 binary
                     .builder
-                    .build_store(scratch_len, i32_const!(ns.value_length as u64))
+                    .build_store(scratch_len, i32_const!(binary.ns.value_length as u64))
                     .unwrap();
 
                 call!(
@@ -1477,7 +1454,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
                     .build_load(
                         binary
                             .context
-                            .custom_width_int_type(ns.value_length as u32 * 8),
+                            .custom_width_int_type(binary.ns.value_length as u32 * 8),
                         scratch_buf,
                         "price",
                     )
@@ -1491,7 +1468,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary
                     .builder
-                    .build_store(scratch_len, i32_const!(ns.address_length as u64))
+                    .build_store(scratch_len, i32_const!(binary.ns.address_length as u64))
                     .unwrap();
 
                 call!(
@@ -1502,13 +1479,13 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary
                     .builder
-                    .build_load(binary.address_type(ns), scratch_buf, "caller")
+                    .build_load(binary.address_type(), scratch_buf, "caller")
                     .unwrap()
             }
             codegen::Expression::Builtin {
                 kind: codegen::Builtin::Value,
                 ..
-            } => self.value_transferred(binary, ns).into(),
+            } => self.value_transferred(binary).into(),
             codegen::Expression::Builtin {
                 kind: codegen::Builtin::MinimumBalance,
                 ..
@@ -1516,7 +1493,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
                 get_seal_value!(
                     "seal_minimum_balance",
                     "minimum_balance",
-                    ns.value_length as u32 * 8
+                    binary.ns.value_length as u32 * 8
                 )
             }
             codegen::Expression::Builtin {
@@ -1527,7 +1504,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary
                     .builder
-                    .build_store(scratch_len, i32_const!(ns.address_length as u64))
+                    .build_store(scratch_len, i32_const!(binary.ns.address_length as u64))
                     .unwrap();
 
                 call!(
@@ -1549,7 +1526,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary
                     .builder
-                    .build_store(scratch_len, i32_const!(ns.value_length as u64))
+                    .build_store(scratch_len, i32_const!(binary.ns.value_length as u64))
                     .unwrap();
 
                 call!(
@@ -1560,7 +1537,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
 
                 binary
                     .builder
-                    .build_load(binary.value_type(ns), scratch_buf, "balance")
+                    .build_load(binary.value_type(), scratch_buf, "balance")
                     .unwrap()
             }
             _ => unreachable!("{:?}", expr),
@@ -1573,7 +1550,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         ty: &Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue,
-        ns: &Namespace,
         _storage_type: &Option<StorageType>,
     ) -> BasicValueEnum<'a> {
         // The storage slot is an i256 accessed through a pointer, so we need
@@ -1583,7 +1559,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             .build_alloca(slot.get_type(), "slot")
             .unwrap();
 
-        self.storage_load_slot(binary, ty, slot, slot_ptr, function, ns)
+        self.storage_load_slot(binary, ty, slot, slot_ptr, function)
     }
 
     fn storage_store(
@@ -1594,7 +1570,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         slot: &mut IntValue<'a>,
         dest: BasicValueEnum<'a>,
         function: FunctionValue<'a>,
-        ns: &Namespace,
         _: &Option<StorageType>,
     ) {
         let slot_ptr = binary
@@ -1602,7 +1577,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             .build_alloca(slot.get_type(), "slot")
             .unwrap();
 
-        self.storage_store_slot(binary, ty, slot, slot_ptr, dest, function, ns);
+        self.storage_store_slot(binary, ty, slot, slot_ptr, dest, function);
     }
 
     fn storage_delete(
@@ -1611,11 +1586,10 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         ty: &Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
-        ns: &Namespace,
     ) {
         let slot_ptr = bin.builder.build_alloca(slot.get_type(), "slot").unwrap();
 
-        self.storage_delete_slot(bin, ty, slot, slot_ptr, function, ns);
+        self.storage_delete_slot(bin, ty, slot, slot_ptr, function);
     }
 
     fn builtin_function(
@@ -1625,7 +1599,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         builtin_func: &Function,
         args: &[BasicMetadataValueEnum<'a>],
         _first_arg_type: Option<BasicTypeEnum>,
-        ns: &Namespace,
     ) -> Option<BasicValueEnum<'a>> {
         emit_context!(binary);
 
@@ -1682,7 +1655,7 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
             "is_contract" => {
                 let address = binary
                     .builder
-                    .build_alloca(binary.address_type(ns), "maybe_contract")
+                    .build_alloca(binary.address_type(), "maybe_contract")
                     .unwrap();
                 binary
                     .builder
@@ -1735,7 +1708,6 @@ impl<'a> TargetRuntime<'a> for PolkadotTarget {
         _ty: &Type,
         _slot: IntValue<'a>,
         _index: BasicValueEnum<'a>,
-        _ns: &Namespace,
     ) -> IntValue<'a> {
         // not needed for slot-based storage chains
         unimplemented!()

@@ -10,7 +10,7 @@ use crate::emit::{TargetRuntime, Variable};
 use crate::emit_context;
 use crate::sema::ast;
 use crate::sema::ast::CallTy;
-use crate::sema::ast::{Function, Namespace, Type};
+use crate::sema::ast::{Function, Type};
 
 use inkwell::types::{BasicTypeEnum, IntType};
 use inkwell::values::{
@@ -43,7 +43,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         ty: &ast::Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
-        ns: &ast::Namespace,
         storage_type: &Option<StorageType>,
     ) -> BasicValueEnum<'a> {
         let storage_type = storage_type_to_int(storage_type);
@@ -79,7 +78,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         slot: &mut IntValue<'a>,
         dest: BasicValueEnum<'a>,
         function: FunctionValue<'a>,
-        ns: &ast::Namespace,
         storage_type: &Option<StorageType>,
     ) {
         emit_context!(binary);
@@ -123,7 +121,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         ty: &Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
-        ns: &Namespace,
     ) {
         unimplemented!()
     }
@@ -164,7 +161,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         bin: &Binary<'a>,
         function: FunctionValue,
         slot: PointerValue<'a>,
-        ns: &Namespace,
     ) -> PointerValue<'a> {
         unimplemented!()
     }
@@ -176,7 +172,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         slot: IntValue<'a>,
         index: IntValue<'a>,
         loc: Loc,
-        ns: &Namespace,
     ) -> IntValue<'a> {
         unimplemented!()
     }
@@ -188,7 +183,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         slot: IntValue<'a>,
         index: IntValue<'a>,
         value: IntValue<'a>,
-        ns: &Namespace,
         loc: Loc,
     ) {
         unimplemented!()
@@ -201,7 +195,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         ty: &Type,
         slot: IntValue<'a>,
         index: BasicValueEnum<'a>,
-        ns: &Namespace,
     ) -> IntValue<'a> {
         unimplemented!()
     }
@@ -213,7 +206,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         ty: &Type,
         slot: IntValue<'a>,
         val: Option<BasicValueEnum<'a>>,
-        ns: &Namespace,
     ) -> BasicValueEnum<'a> {
         unimplemented!()
     }
@@ -225,7 +217,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         ty: &Type,
         slot: IntValue<'a>,
         load: bool,
-        ns: &Namespace,
         loc: Loc,
     ) -> Option<BasicValueEnum<'a>> {
         unimplemented!()
@@ -237,7 +228,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         _function: FunctionValue,
         _slot: IntValue<'a>,
         _elem_ty: &Type,
-        _ns: &Namespace,
     ) -> IntValue<'a> {
         unimplemented!()
     }
@@ -249,7 +239,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         src: PointerValue,
         length: IntValue,
         dest: PointerValue,
-        ns: &Namespace,
     ) {
         unimplemented!()
     }
@@ -308,7 +297,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         builtin_func: &Function,
         args: &[BasicMetadataValueEnum<'a>],
         first_arg_type: Option<BasicTypeEnum>,
-        ns: &Namespace,
     ) -> Option<BasicValueEnum<'a>> {
         unimplemented!()
     }
@@ -324,7 +312,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         encoded_args: BasicValueEnum<'b>,
         encoded_args_len: BasicValueEnum<'b>,
         contract_args: ContractArgs<'b>,
-        ns: &Namespace,
         loc: Loc,
     ) {
         unimplemented!()
@@ -341,7 +328,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         address: Option<BasicValueEnum<'b>>,
         contract_args: ContractArgs<'b>,
         ty: CallTy,
-        ns: &Namespace,
         loc: Loc,
     ) {
         let offset = bin.context.i64_type().const_int(0, false);
@@ -448,7 +434,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         _success: Option<&mut BasicValueEnum<'b>>,
         _address: PointerValue<'b>,
         _value: IntValue<'b>,
-        _ns: &Namespace,
         loc: Loc,
     ) {
         unimplemented!()
@@ -461,7 +446,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         expr: &Expression,
         vartab: &HashMap<usize, Variable<'b>>,
         function: FunctionValue<'b>,
-        ns: &Namespace,
     ) -> BasicValueEnum<'b> {
         emit_context!(bin);
 
@@ -618,12 +602,12 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
     }
 
     /// Return the value we received
-    fn value_transferred<'b>(&self, binary: &Binary<'b>, ns: &Namespace) -> IntValue<'b> {
+    fn value_transferred<'b>(&self, binary: &Binary<'b>) -> IntValue<'b> {
         unimplemented!()
     }
 
     /// Terminate execution, destroy bin and send remaining funds to addr
-    fn selfdestruct<'b>(&self, binary: &Binary<'b>, addr: ArrayValue<'b>, ns: &Namespace) {
+    fn selfdestruct<'b>(&self, binary: &Binary<'b>, addr: ArrayValue<'b>) {
         unimplemented!()
     }
 
@@ -635,7 +619,6 @@ impl<'a> TargetRuntime<'a> for SorobanTarget {
         hash: HashTy,
         string: PointerValue<'b>,
         length: IntValue<'b>,
-        ns: &Namespace,
     ) -> IntValue<'b> {
         unimplemented!()
     }

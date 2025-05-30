@@ -3,11 +3,10 @@
 pub(super) mod target;
 
 use crate::sema::ast;
-use crate::Target;
 use std::cmp::Ordering;
 
 use crate::codegen::{cfg::ReturnCode, Options};
-use crate::sema::ast::{Namespace, StructType, Type};
+use crate::sema::ast::{StructType, Type};
 use inkwell::module::{Linkage, Module};
 use inkwell::types::BasicType;
 use inkwell::values::{
@@ -36,7 +35,7 @@ impl SolanaTarget {
         let filename = ns.files[contract.loc.file_no()].file_name();
         let mut binary = Binary::new(
             context,
-            Target::Solana,
+            ns,
             &contract.id.name,
             filename.as_str(),
             opt,
@@ -68,9 +67,9 @@ impl SolanaTarget {
             context.i64_type().const_int(5u64 << 32, false),
         );
         // externals
-        target.declare_externals(&mut binary, ns);
+        target.declare_externals(&mut binary);
 
-        emit_functions(&mut target, &mut binary, contract, ns);
+        emit_functions(&mut target, &mut binary, contract);
 
         binary.internalize(&[
             "entrypoint",
@@ -90,16 +89,13 @@ impl SolanaTarget {
         binary
     }
 
-    fn declare_externals(&self, binary: &mut Binary, ns: &ast::Namespace) {
+    fn declare_externals(&self, binary: &mut Binary) {
         let void_ty = binary.context.void_type();
         let u8_ptr = binary.context.i8_type().ptr_type(AddressSpace::default());
         let u64_ty = binary.context.i64_type();
         let u32_ty = binary.context.i32_type();
-        let address = binary.address_type(ns).ptr_type(AddressSpace::default());
-        let seeds = binary.llvm_type(
-            &Type::Ref(Box::new(Type::Slice(Box::new(Type::Bytes(1))))),
-            ns,
-        );
+        let address = binary.address_type().ptr_type(AddressSpace::default());
+        let seeds = binary.llvm_type(&Type::Ref(Box::new(Type::Slice(Box::new(Type::Bytes(1))))));
 
         let sol_bytes = binary
             .context
@@ -325,9 +321,8 @@ impl SolanaTarget {
         slot: IntValue<'b>,
         function: FunctionValue<'b>,
         zero: bool,
-        ns: &ast::Namespace,
     ) {
-        if !zero && !ty.is_dynamic(ns) {
+        if !zero && !ty.is_dynamic(binary.ns) {
             // nothing to do
             return;
         }
@@ -365,7 +360,7 @@ impl SolanaTarget {
             let mut elem_slot = slot;
             let mut free_array = None;
 
-            if elem_ty.is_dynamic(ns) || zero {
+            if elem_ty.is_dynamic(binary.ns) || zero {
                 let length = if let Some(ast::ArrayLength::Fixed(length)) = dim.last() {
                     binary
                         .context
@@ -380,10 +375,10 @@ impl SolanaTarget {
 
                     free_array = Some(elem_slot);
 
-                    self.storage_array_length(binary, function, slot, elem_ty, ns)
+                    self.storage_array_length(binary, function, slot, elem_ty)
                 };
 
-                let elem_size = elem_ty.solana_storage_size(ns).to_u64().unwrap();
+                let elem_size = elem_ty.solana_storage_size(binary.ns).to_u64().unwrap();
 
                 // loop over the array
                 let mut builder = LoopBuilder::new(binary, function);
@@ -405,7 +400,6 @@ impl SolanaTarget {
                     offset_val,
                     function,
                     zero,
-                    ns,
                 );
 
                 let offset_val = binary
@@ -443,8 +437,8 @@ impl SolanaTarget {
                 }
             }
         } else if let ast::Type::Struct(struct_ty) = ty {
-            for (i, field) in struct_ty.definition(ns).fields.iter().enumerate() {
-                let field_offset = struct_ty.definition(ns).storage_offsets[i]
+            for (i, field) in struct_ty.definition(binary.ns).fields.iter().enumerate() {
+                let field_offset = struct_ty.definition(binary.ns).storage_offsets[i]
                     .to_u64()
                     .unwrap();
 
@@ -457,17 +451,17 @@ impl SolanaTarget {
                     )
                     .unwrap();
 
-                self.storage_free(binary, &field.ty, data, offset, function, zero, ns);
+                self.storage_free(binary, &field.ty, data, offset, function, zero);
             }
         } else if matches!(ty, Type::Address(_) | Type::Contract(_)) {
-            let ty = binary.llvm_type(ty, ns);
+            let ty = binary.llvm_type(ty);
 
             binary
                 .builder
                 .build_store(member, ty.into_array_type().const_zero())
                 .unwrap();
         } else {
-            let ty = binary.llvm_type(ty, ns);
+            let ty = binary.llvm_type(ty);
 
             binary
                 .builder
@@ -482,7 +476,6 @@ impl SolanaTarget {
         binary: &Binary<'b>,
         key_ty: &ast::Type,
         value_ty: &ast::Type,
-        ns: &ast::Namespace,
     ) -> BasicTypeEnum<'b> {
         let key = if matches!(
             key_ty,
@@ -490,7 +483,7 @@ impl SolanaTarget {
         ) {
             binary.context.i32_type().into()
         } else {
-            binary.llvm_type(key_ty, ns)
+            binary.llvm_type(key_ty)
         };
 
         binary
@@ -502,7 +495,7 @@ impl SolanaTarget {
                     if value_ty.is_mapping() {
                         binary.context.i32_type().into()
                     } else {
-                        binary.llvm_type(value_ty, ns) // value
+                        binary.llvm_type(value_ty) // value
                     },
                 ],
                 false,
@@ -516,12 +509,11 @@ impl SolanaTarget {
         binary: &Binary<'b>,
         key_ty: &ast::Type,
         value_ty: &ast::Type,
-        ns: &ast::Namespace,
     ) -> FunctionValue<'b> {
         let function_name = format!(
             "sparse_lookup_{}_{}",
-            key_ty.to_llvm_string(ns),
-            value_ty.to_llvm_string(ns)
+            key_ty.to_llvm_string(binary.ns),
+            value_ty.to_llvm_string(binary.ns)
         );
 
         if let Some(function) = binary.module.get_function(&function_name) {
@@ -533,7 +525,6 @@ impl SolanaTarget {
         let function_ty = binary.function_type(
             &[ast::Type::Uint(32), key_ty.clone()],
             &[ast::Type::Uint(32)],
-            ns,
         );
 
         let function =
@@ -548,7 +539,7 @@ impl SolanaTarget {
         let offset = function.get_nth_param(0).unwrap().into_int_value();
         let key = function.get_nth_param(1).unwrap();
 
-        let entry_ty = self.sparse_entry(binary, key_ty, value_ty, ns);
+        let entry_ty = self.sparse_entry(binary, key_ty, value_ty);
         let value_offset = unsafe {
             entry_ty
                 .ptr_type(AddressSpace::default())
@@ -572,7 +563,7 @@ impl SolanaTarget {
         }
         .unwrap();
 
-        let address = binary.build_alloca(function, binary.address_type(ns), "address");
+        let address = binary.build_alloca(function, binary.address_type(), "address");
 
         // calculate the correct bucket. We have an prime number of
         let bucket = if matches!(key_ty, ast::Type::String | ast::Type::DynamicBytes) {
@@ -603,7 +594,7 @@ impl SolanaTarget {
                 .left()
                 .unwrap()
                 .into_int_value()
-        } else if key_ty.bits(ns) > 64 {
+        } else if key_ty.bits(binary.ns) > 64 {
             binary
                 .builder
                 .build_int_truncate(key.into_int_value(), binary.context.i64_type(), "")
@@ -773,7 +764,7 @@ impl SolanaTarget {
         } else {
             let entry_key = binary
                 .builder
-                .build_load(binary.llvm_type(key_ty, ns), ptr, "key")
+                .build_load(binary.llvm_type(key_ty), ptr, "key")
                 .unwrap();
 
             binary
@@ -1044,13 +1035,12 @@ impl SolanaTarget {
         value_ty: &ast::Type,
         slot: IntValue<'b>,
         index: BasicValueEnum<'b>,
-        ns: &ast::Namespace,
     ) -> IntValue<'b> {
         let offset = binary.build_alloca(function, binary.context.i32_type(), "offset");
 
         let current_block = binary.builder.get_insert_block().unwrap();
 
-        let lookup = self.sparse_lookup_function(binary, key_ty, value_ty, ns);
+        let lookup = self.sparse_lookup_function(binary, key_ty, value_ty);
 
         binary.builder.position_at_end(current_block);
 
@@ -1108,7 +1098,6 @@ impl SolanaTarget {
         function: FunctionValue<'b>,
         account_info: PointerValue<'b>,
         member: usize,
-        ns: &ast::Namespace,
     ) -> BasicValueEnum<'b> {
         let account_info_ty = binary
             .module
@@ -1147,13 +1136,13 @@ impl SolanaTarget {
 
                 let slice_alloca = binary.build_alloca(
                     function,
-                    binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1))), ns),
+                    binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1)))),
                     "slice_alloca",
                 );
                 let data_elem = binary
                     .builder
                     .build_struct_gep(
-                        binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1))), ns),
+                        binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1)))),
                         slice_alloca,
                         0,
                         "data",
@@ -1163,7 +1152,7 @@ impl SolanaTarget {
                 let data_len_elem = binary
                     .builder
                     .build_struct_gep(
-                        binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1))), ns),
+                        binary.llvm_type(&ast::Type::Slice(Box::new(Type::Bytes(1)))),
                         slice_alloca,
                         1,
                         "data_len",
@@ -1195,7 +1184,6 @@ impl SolanaTarget {
         payload: PointerValue<'b>,
         payload_len: IntValue<'b>,
         contract_args: ContractArgs<'b>,
-        ns: &Namespace,
     ) {
         let instruction_ty: BasicTypeEnum = binary
             .context
@@ -1208,7 +1196,7 @@ impl SolanaTarget {
                         .ptr_type(AddressSpace::default())
                         .as_basic_type_enum(),
                     binary
-                        .llvm_type(&Type::Struct(StructType::AccountMeta), ns)
+                        .llvm_type(&Type::Struct(StructType::AccountMeta))
                         .ptr_type(AddressSpace::default())
                         .as_basic_type_enum(),
                     binary.context.i64_type().as_basic_type_enum(),

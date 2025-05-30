@@ -128,7 +128,7 @@ impl SorobanTarget {
         let filename = ns.files[contract.loc.file_no()].file_name();
         let mut binary = Binary::new(
             context,
-            ns.target,
+            ns,
             &contract.id.name,
             &filename,
             opt,
@@ -141,7 +141,6 @@ impl SorobanTarget {
         Self::emit_functions_with_spec(
             contract,
             &mut binary,
-            ns,
             context,
             contract_no,
             &mut export_list,
@@ -160,7 +159,6 @@ impl SorobanTarget {
     fn emit_functions_with_spec<'a>(
         contract: &'a ast::Contract,
         binary: &mut Binary<'a>,
-        ns: &'a ast::Namespace,
         context: &'a Context,
         _contract_no: usize,
         export_list: &mut Vec<&'a str>,
@@ -171,7 +169,6 @@ impl SorobanTarget {
             let ftype = binary.function_type(
                 &cfg.params.iter().map(|p| p.ty.clone()).collect::<Vec<_>>(),
                 &cfg.returns.iter().map(|p| p.ty.clone()).collect::<Vec<_>>(),
-                ns,
             );
 
             // For each function, determine the name and the linkage
@@ -214,7 +211,7 @@ impl SorobanTarget {
             .add_function("storage_initializer", init_type, None);
 
         for (func_decl, cfg) in defines {
-            emit_cfg(&mut SorobanTarget, binary, contract, cfg, func_decl, ns);
+            emit_cfg(&mut SorobanTarget, binary, contract, cfg, func_decl);
         }
     }
 

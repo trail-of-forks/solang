@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::emit::binary::Binary;
-use crate::sema::ast::{Namespace, Type};
+use crate::sema::ast::Type;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::{ArrayValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 
@@ -19,7 +19,6 @@ pub(super) trait StorageSlot {
         &self,
         binary: &Binary<'a>,
         slot: PointerValue<'a>,
-        ns: &Namespace,
     ) -> ArrayValue<'a>;
 
     /// Clear a particlar storage slot (slot-based storage chains should implement)
@@ -33,7 +32,6 @@ pub(super) trait StorageSlot {
         slot: &mut IntValue<'a>,
         slot_ptr: PointerValue<'a>,
         function: FunctionValue,
-        ns: &Namespace,
     ) -> BasicValueEnum<'a>;
 
     /// Recursively store a type to storage for slot-based storage
@@ -45,7 +43,6 @@ pub(super) trait StorageSlot {
         slot_ptr: PointerValue<'a>,
         dest: BasicValueEnum<'a>,
         function: FunctionValue<'a>,
-        ns: &Namespace,
     );
 
     /// Recursively clear bin storage for slot-based storage
@@ -56,6 +53,5 @@ pub(super) trait StorageSlot {
         slot: &mut IntValue<'a>,
         slot_ptr: PointerValue<'a>,
         function: FunctionValue<'a>,
-        ns: &Namespace,
     );
 }

@@ -7,7 +7,7 @@ use crate::emit::expression::expression;
 use crate::emit::loop_builder::LoopBuilder;
 use crate::emit::solana::SolanaTarget;
 use crate::emit::{ContractArgs, TargetRuntime, Variable};
-use crate::sema::ast::{self, Namespace};
+use crate::sema::ast;
 use inkwell::types::{BasicType, BasicTypeEnum, IntType};
 use inkwell::values::{
     ArrayValue, BasicMetadataValueEnum, BasicValueEnum, FunctionValue, IntValue, PointerValue,
@@ -25,12 +25,11 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         ty: &ast::Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
-        ns: &ast::Namespace,
     ) {
         // binary storage is in 2nd account
         let data = self.contract_storage_data(binary);
 
-        self.storage_free(binary, ty, data, *slot, function, true, ns);
+        self.storage_free(binary, ty, data, *slot, function, true);
     }
 
     fn set_storage_extfunc(
@@ -48,7 +47,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         _binary: &Binary<'a>,
         _function: FunctionValue,
         _slot: PointerValue<'a>,
-        _ns: &ast::Namespace,
     ) -> PointerValue<'a> {
         unimplemented!();
     }
@@ -81,7 +79,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         slot: IntValue<'a>,
         index: IntValue<'a>,
         loc: Loc,
-        ns: &Namespace,
     ) -> IntValue<'a> {
         let data = self.contract_storage_data(binary);
 
@@ -131,7 +128,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             self,
             "storage array index out of bounds".to_string(),
             Some(loc),
-            ns,
         );
         self.assert_failure(
             binary,
@@ -171,7 +167,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         slot: IntValue,
         index: IntValue,
         val: IntValue,
-        ns: &Namespace,
         loc: Loc,
     ) {
         let data = self.contract_storage_data(binary);
@@ -217,12 +212,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             .unwrap();
 
         binary.builder.position_at_end(bang_block);
-        binary.log_runtime_error(
-            self,
-            "storage index out of bounds".to_string(),
-            Some(loc),
-            ns,
-        );
+        binary.log_runtime_error(self, "storage index out of bounds".to_string(), Some(loc));
         self.assert_failure(
             binary,
             binary
@@ -257,19 +247,18 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         ty: &ast::Type,
         slot: IntValue<'a>,
         index: BasicValueEnum<'a>,
-        ns: &ast::Namespace,
     ) -> IntValue<'a> {
         let account = self.contract_storage_account(binary);
 
         if let ast::Type::Mapping(ast::Mapping { key, value, .. }) = ty.deref_any() {
-            self.sparse_lookup(binary, function, key, value, slot, index, ns)
-        } else if ty.is_sparse_solana(ns) {
+            self.sparse_lookup(binary, function, key, value, slot, index)
+        } else if ty.is_sparse_solana(binary.ns) {
             // sparse array
             let elem_ty = ty.storage_array_elem().deref_into();
 
             let key = ast::Type::Uint(256);
 
-            self.sparse_lookup(binary, function, &key, &elem_ty, slot, index, ns)
+            self.sparse_lookup(binary, function, &key, &elem_ty, slot, index)
         } else {
             // 3rd member of account is data pointer
             let data = unsafe {
@@ -315,10 +304,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             let elem_ty = ty.storage_array_elem().deref_into();
 
-            let elem_size = binary
-                .context
-                .i32_type()
-                .const_int(elem_ty.solana_storage_size(ns).to_u64().unwrap(), false);
+            let elem_size = binary.context.i32_type().const_int(
+                elem_ty.solana_storage_size(binary.ns).to_u64().unwrap(),
+                false,
+            );
 
             binary
                 .builder
@@ -341,7 +330,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         ty: &ast::Type,
         slot: IntValue<'a>,
         val: Option<BasicValueEnum<'a>>,
-        ns: &ast::Namespace,
     ) -> BasicValueEnum<'a> {
         let data = self.contract_storage_data(binary);
         let account = self.contract_storage_account(binary);
@@ -375,7 +363,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let member_size = binary
             .context
             .i32_type()
-            .const_int(ty.storage_slots(ns).to_u64().unwrap(), false);
+            .const_int(ty.storage_slots(binary.ns).to_u64().unwrap(), false);
         let new_length = binary
             .builder
             .build_int_add(length, member_size, "new_length")
@@ -440,10 +428,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             .unwrap();
 
         if let Some(val) = val {
-            self.storage_store(binary, ty, false, &mut new_offset, val, function, ns, &None);
+            self.storage_store(binary, ty, false, &mut new_offset, val, function, &None);
         }
 
-        if ty.is_reference_type(ns) {
+        if ty.is_reference_type(binary.ns) {
             // Caller expects a reference to storage; note that storage_store() should not modify
             // new_offset even if the argument is mut
             new_offset.into()
@@ -459,7 +447,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         ty: &ast::Type,
         slot: IntValue<'a>,
         load: bool,
-        ns: &ast::Namespace,
         loc: Loc,
     ) -> Option<BasicValueEnum<'a>> {
         let data = self.contract_storage_data(binary);
@@ -511,12 +498,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             .unwrap();
 
         binary.builder.position_at_end(bang_block);
-        binary.log_runtime_error(
-            self,
-            "pop from empty storage array".to_string(),
-            Some(loc),
-            ns,
-        );
+        binary.log_runtime_error(self, "pop from empty storage array".to_string(), Some(loc));
         self.assert_failure(
             binary,
             binary
@@ -532,7 +514,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let member_size = binary
             .context
             .i32_type()
-            .const_int(ty.storage_slots(ns).to_u64().unwrap(), false);
+            .const_int(ty.storage_slots(binary.ns).to_u64().unwrap(), false);
 
         let new_length = binary
             .builder
@@ -545,13 +527,13 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             .unwrap();
 
         let val = if load {
-            Some(self.storage_load(binary, ty, &mut old_elem_offset, function, ns, &None))
+            Some(self.storage_load(binary, ty, &mut old_elem_offset, function, &None))
         } else {
             None
         };
 
         // delete existing storage -- pointers need to be freed
-        self.storage_free(binary, ty, data, old_elem_offset, function, false, ns);
+        self.storage_free(binary, ty, data, old_elem_offset, function, false);
 
         // we can assume pointer will stay the same after realloc to smaller size
         binary
@@ -577,7 +559,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         _function: FunctionValue,
         slot: IntValue<'a>,
         elem_ty: &ast::Type,
-        ns: &ast::Namespace,
     ) -> IntValue<'a> {
         let data = self.contract_storage_data(binary);
 
@@ -598,7 +579,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let member_size = binary
             .context
             .i32_type()
-            .const_int(elem_ty.storage_slots(ns).to_u64().unwrap(), false);
+            .const_int(elem_ty.storage_slots(binary.ns).to_u64().unwrap(), false);
 
         let length_bytes = binary
             .builder
@@ -638,7 +619,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         ty: &ast::Type,
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
-        ns: &ast::Namespace,
         _storage_type: &Option<StorageType>,
     ) -> BasicValueEnum<'a> {
         let data = self.contract_storage_data(binary);
@@ -696,7 +676,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .unwrap()
             }
             ast::Type::Struct(struct_ty) => {
-                let llvm_ty = binary.llvm_type(ty.deref_any(), ns);
+                let llvm_ty = binary.llvm_type(ty.deref_any());
                 // LLVMSizeOf() produces an i64
                 let size = binary
                     .builder
@@ -720,8 +700,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .unwrap()
                     .into_pointer_value();
 
-                for (i, field) in struct_ty.definition(ns).fields.iter().enumerate() {
-                    let field_offset = struct_ty.definition(ns).storage_offsets[i]
+                for (i, field) in struct_ty.definition(binary.ns).fields.iter().enumerate() {
+                    let field_offset = struct_ty.definition(binary.ns).storage_offsets[i]
                         .to_u64()
                         .unwrap();
 
@@ -734,8 +714,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         )
                         .unwrap();
 
-                    let val =
-                        self.storage_load(binary, &field.ty, &mut offset, function, ns, &None);
+                    let val = self.storage_load(binary, &field.ty, &mut offset, function, &None);
 
                     let elem = unsafe {
                         binary
@@ -752,8 +731,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                             .unwrap()
                     };
 
-                    let val = if field.ty.is_fixed_reference_type(ns) {
-                        let load_ty = binary.llvm_type(&field.ty, ns);
+                    let val = if field.ty.is_fixed_reference_type(binary.ns) {
+                        let load_ty = binary.llvm_type(&field.ty);
                         binary
                             .builder
                             .build_load(load_ty, val.into_pointer_value(), "elem")
@@ -768,7 +747,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 new.into()
             }
             ast::Type::Array(elem_ty, dim) => {
-                let llvm_ty = binary.llvm_type(ty.deref_any(), ns);
+                let llvm_ty = binary.llvm_type(ty.deref_any());
 
                 let dest;
                 let length;
@@ -807,7 +786,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         false,
                     );
                 } else {
-                    let llvm_elem_ty = binary.llvm_field_ty(elem_ty, ns);
+                    let llvm_elem_ty = binary.llvm_field_ty(elem_ty);
                     let elem_size = binary
                         .builder
                         .build_int_truncate(
@@ -817,7 +796,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         )
                         .unwrap();
 
-                    length = self.storage_array_length(binary, function, slot, elem_ty, ns);
+                    length = self.storage_array_length(binary, function, slot, elem_ty);
 
                     slot = binary
                         .builder
@@ -826,11 +805,11 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         .into_int_value();
 
                     dest = binary
-                        .vector_new(length, elem_size, None, elem_ty, ns)
+                        .vector_new(length, elem_size, None, elem_ty)
                         .into_pointer_value();
                 };
 
-                let elem_size = elem_ty.solana_storage_size(ns).to_u64().unwrap();
+                let elem_size = elem_ty.solana_storage_size(binary.ns).to_u64().unwrap();
 
                 // loop over the array
                 let mut builder = LoopBuilder::new(binary, function);
@@ -841,7 +820,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 let index = builder.over(binary, binary.context.i32_type().const_zero(), length);
 
-                let elem = binary.array_subscript(ty.deref_any(), dest, index, ns);
+                let elem = binary.array_subscript(ty.deref_any(), dest, index);
 
                 let elem_ty = ty.array_deref();
 
@@ -852,12 +831,11 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     elem_ty.deref_memory(),
                     &mut offset_val,
                     function,
-                    ns,
                     &None,
                 );
 
-                let val = if elem_ty.deref_memory().is_fixed_reference_type(ns) {
-                    let load_ty = binary.llvm_type(elem_ty.deref_any(), ns);
+                let val = if elem_ty.deref_memory().is_fixed_reference_type(binary.ns) {
+                    let load_ty = binary.llvm_type(elem_ty.deref_any());
                     binary
                         .builder
                         .build_load(load_ty, val.into_pointer_value(), "elem")
@@ -887,7 +865,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             }
             _ => binary
                 .builder
-                .build_load(binary.llvm_var_ty(ty, ns), member, "")
+                .build_load(binary.llvm_var_ty(ty), member, "")
                 .unwrap(),
         }
     }
@@ -900,7 +878,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         offset: &mut IntValue<'a>,
         val: BasicValueEnum<'a>,
         function: FunctionValue<'a>,
-        ns: &ast::Namespace,
         _: &Option<StorageType>,
     ) {
         let data = self.contract_storage_data(binary);
@@ -1105,7 +1082,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         } else if let ast::Type::Array(elem_ty, dim) = ty {
             // make sure any pointers are freed
             if existing {
-                self.storage_free(binary, ty, data, *offset, function, false, ns);
+                self.storage_free(binary, ty, data, *offset, function, false);
             }
 
             let length = if let Some(ast::ArrayLength::Fixed(length)) = dim.last() {
@@ -1121,10 +1098,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             if Some(&ast::ArrayLength::Dynamic) == dim.last() {
                 // reallocate to the right size
-                let member_size = binary
-                    .context
-                    .i32_type()
-                    .const_int(elem_ty.solana_storage_size(ns).to_u64().unwrap(), false);
+                let member_size = binary.context.i32_type().const_int(
+                    elem_ty.solana_storage_size(binary.ns).to_u64().unwrap(),
+                    false,
+                );
                 let new_length = binary
                     .builder
                     .build_int_mul(length, member_size, "new_length")
@@ -1187,7 +1164,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .into_int_value();
             }
 
-            let elem_size = elem_ty.solana_storage_size(ns).to_u64().unwrap();
+            let elem_size = elem_ty.solana_storage_size(binary.ns).to_u64().unwrap();
 
             // loop over the array
             let mut builder = LoopBuilder::new(binary, function);
@@ -1198,7 +1175,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             let index = builder.over(binary, binary.context.i32_type().const_zero(), length);
 
-            let elem = binary.array_subscript(ty, val.into_pointer_value(), index, ns);
+            let elem = binary.array_subscript(ty, val.into_pointer_value(), index);
 
             let mut offset_val = offset_phi.into_int_value();
 
@@ -1209,16 +1186,16 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 elem_ty.deref_any(),
                 false, // storage already freed with storage_free
                 &mut offset_val,
-                if elem_ty.deref_memory().is_fixed_reference_type(ns) {
+                if elem_ty.deref_memory().is_fixed_reference_type(binary.ns) {
                     elem.into()
                 } else {
-                    let load_ty = if elem_ty.is_dynamic(ns) {
+                    let load_ty = if elem_ty.is_dynamic(binary.ns) {
                         binary
-                            .llvm_type(elem_ty.deref_memory(), ns)
+                            .llvm_type(elem_ty.deref_memory())
                             .ptr_type(AddressSpace::default())
                             .as_basic_type_enum()
                     } else {
-                        binary.llvm_type(elem_ty.deref_memory(), ns)
+                        binary.llvm_type(elem_ty.deref_memory())
                     };
                     binary
                         .builder
@@ -1226,7 +1203,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         .unwrap()
                 },
                 function,
-                ns,
                 &None,
             );
 
@@ -1245,8 +1221,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             // done
             builder.finish(binary);
         } else if let ast::Type::Struct(struct_ty) = ty {
-            for (i, field) in struct_ty.definition(ns).fields.iter().enumerate() {
-                let field_offset = struct_ty.definition(ns).storage_offsets[i]
+            for (i, field) in struct_ty.definition(binary.ns).fields.iter().enumerate() {
+                let field_offset = struct_ty.definition(binary.ns).storage_offsets[i]
                     .to_u64()
                     .unwrap();
 
@@ -1259,7 +1235,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     )
                     .unwrap();
 
-                let val_ty = binary.llvm_type(ty, ns);
+                let val_ty = binary.llvm_type(ty);
                 let elem = unsafe {
                     binary
                         .builder
@@ -1277,7 +1253,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 // free any existing dynamic storage
                 if existing {
-                    self.storage_free(binary, &field.ty, data, offset, function, false, ns);
+                    self.storage_free(binary, &field.ty, data, offset, function, false);
                 }
 
                 self.storage_store(
@@ -1285,16 +1261,16 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     &field.ty,
                     existing,
                     &mut offset,
-                    if field.ty.is_fixed_reference_type(ns) {
+                    if field.ty.is_fixed_reference_type(binary.ns) {
                         elem.into()
                     } else {
-                        let load_ty = if field.ty.is_dynamic(ns) {
+                        let load_ty = if field.ty.is_dynamic(binary.ns) {
                             binary
-                                .llvm_type(&field.ty, ns)
+                                .llvm_type(&field.ty)
                                 .ptr_type(AddressSpace::default())
                                 .as_basic_type_enum()
                         } else {
-                            binary.llvm_type(&field.ty, ns)
+                            binary.llvm_type(&field.ty)
                         };
                         binary
                             .builder
@@ -1302,7 +1278,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                             .unwrap()
                     },
                     function,
-                    ns,
                     &None,
                 );
             }
@@ -1317,7 +1292,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         _src: PointerValue,
         _length: IntValue,
         _dest: PointerValue,
-        _ns: &ast::Namespace,
     ) {
         unreachable!();
     }
@@ -1384,7 +1358,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         encoded_args: BasicValueEnum<'b>,
         encoded_args_len: BasicValueEnum<'b>,
         mut contract_args: ContractArgs<'b>,
-        ns: &ast::Namespace,
         _loc: Loc,
     ) {
         contract_args.program_id = Some(address);
@@ -1394,7 +1367,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         assert!(contract_args.accounts.is_some());
         // The AccountMeta array is always present for Solana contracts
-        self.build_invoke_signed_c(binary, function, payload, payload_len, contract_args, ns);
+        self.build_invoke_signed_c(binary, function, payload, payload_len, contract_args);
     }
 
     fn builtin_function(
@@ -1404,7 +1377,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         builtin_func: &ast::Function,
         args: &[BasicMetadataValueEnum<'a>],
         first_arg_type: Option<BasicTypeEnum>,
-        ns: &ast::Namespace,
     ) -> Option<BasicValueEnum<'a>> {
         let first_arg_type =
             first_arg_type.expect("solana does not have builtin without any parameter");
@@ -1421,7 +1393,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .const_int(first_arg_type.into_array_type().len() as u64, false);
 
             // address
-            let address = binary.build_alloca(function, binary.address_type(ns), "address");
+            let address = binary.build_alloca(function, binary.address_type(), "address");
 
             binary
                 .builder
@@ -1457,7 +1429,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .const_int(first_arg_type.into_array_type().len() as u64, false);
 
             // address
-            let address = binary.build_alloca(function, binary.address_type(ns), "address");
+            let address = binary.build_alloca(function, binary.address_type(), "address");
 
             binary
                 .builder
@@ -1498,7 +1470,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         address: Option<BasicValueEnum<'b>>,
         mut contract_args: ContractArgs<'b>,
         _ty: ast::CallTy,
-        ns: &ast::Namespace,
         _loc: Loc,
     ) {
         let address = address.unwrap();
@@ -1515,7 +1486,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         };
 
         contract_args.program_id = Some(address.into_pointer_value());
-        self.build_invoke_signed_c(binary, function, payload, payload_len, contract_args, ns);
+        self.build_invoke_signed_c(binary, function, payload, payload_len, contract_args);
     }
 
     /// Get return buffer for external call
@@ -1653,7 +1624,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
     }
 
     /// Value received is not available on solana
-    fn value_transferred<'b>(&self, _binary: &Binary<'b>, _ns: &ast::Namespace) -> IntValue<'b> {
+    fn value_transferred<'b>(&self, _binary: &Binary<'b>) -> IntValue<'b> {
         unreachable!();
     }
 
@@ -1665,14 +1636,13 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         _success: Option<&mut BasicValueEnum<'b>>,
         _address: PointerValue<'b>,
         _value: IntValue<'b>,
-        _ns: &ast::Namespace,
         _loc: Loc,
     ) {
         unreachable!();
     }
 
     /// Terminate execution, destroy binary and send remaining funds to addr
-    fn selfdestruct<'b>(&self, _binary: &Binary<'b>, _addr: ArrayValue<'b>, _ns: &ast::Namespace) {
+    fn selfdestruct<'b>(&self, _binary: &Binary<'b>, _addr: ArrayValue<'b>) {
         unimplemented!();
     }
 
@@ -1762,7 +1732,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         expr: &codegen::Expression,
         vartab: &HashMap<usize, Variable<'b>>,
         function: FunctionValue<'b>,
-        ns: &ast::Namespace,
     ) -> BasicValueEnum<'b> {
         match expr {
             codegen::Expression::Builtin {
@@ -1987,18 +1956,18 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             } => {
                 assert_eq!(args.len(), 3);
 
-                let address = binary.build_alloca(function, binary.address_type(ns), "address");
+                let address = binary.build_alloca(function, binary.address_type(), "address");
 
                 binary
                     .builder
                     .build_store(
                         address,
-                        expression(self, binary, &args[0], vartab, function, ns).into_array_value(),
+                        expression(self, binary, &args[0], vartab, function).into_array_value(),
                     )
                     .unwrap();
 
-                let message = expression(self, binary, &args[1], vartab, function, ns);
-                let signature = expression(self, binary, &args[2], vartab, function, ns);
+                let message = expression(self, binary, &args[1], vartab, function);
+                let signature = expression(self, binary, &args[2], vartab, function);
                 let parameters = self.sol_parameters(binary);
                 let signature_verify = binary.module.get_function("signature_verify").unwrap();
 
@@ -2094,9 +2063,9 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             }
             codegen::Expression::StructMember { expr, member, .. } => {
                 let account_info =
-                    expression(self, binary, expr, vartab, function, ns).into_pointer_value();
+                    expression(self, binary, expr, vartab, function).into_pointer_value();
 
-                self.account_info_member(binary, function, account_info, *member, ns)
+                self.account_info_member(binary, function, account_info, *member)
             }
             _ => unimplemented!(),
         }
@@ -2110,7 +2079,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         hash: HashTy,
         input: PointerValue<'b>,
         input_len: IntValue<'b>,
-        ns: &ast::Namespace,
     ) -> IntValue<'b> {
         let (fname, hashlen) = match hash {
             HashTy::Keccak256 => ("sol_keccak256", 32),
@@ -2197,7 +2165,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         // bytes32 needs to reverse bytes
         let temp = binary.build_alloca(
             function,
-            binary.llvm_type(&ast::Type::Bytes(hashlen as u8), ns),
+            binary.llvm_type(&ast::Type::Bytes(hashlen as u8)),
             "hash",
         );
 
@@ -2217,7 +2185,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         binary
             .builder
             .build_load(
-                binary.llvm_type(&ast::Type::Bytes(hashlen as u8), ns),
+                binary.llvm_type(&ast::Type::Bytes(hashlen as u8)),
                 temp,
                 "hash",
             )
