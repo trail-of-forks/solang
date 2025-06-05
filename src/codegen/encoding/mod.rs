@@ -348,7 +348,6 @@ pub(crate) trait AbiEncoding {
 
         let maybe_swapped_expr = if ns.target == Target::Stylus {
             Expression::ByteSwap {
-                ty: Type::Uint(encoding_size),
                 expr: Box::new(expr),
                 le_to_be: true,
             }
@@ -770,7 +769,6 @@ pub(crate) trait AbiEncoding {
 
                 let maybe_swapped_expr = if ns.target == Target::Stylus {
                     Expression::ByteSwap {
-                        ty: ty.clone(),
                         expr: Box::new(maybe_truncated_expr),
                         le_to_be: false,
                     }
