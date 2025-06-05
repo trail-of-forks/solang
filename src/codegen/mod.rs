@@ -1917,7 +1917,7 @@ impl From<&ast::Builtin> for Builtin {
 }
 
 // smoelius: I am not sure whether something like this already exists.
-// debug_expr!(expr, cfg, vartab)
+/// debug_expr!(expr, cfg, vartab)
 #[allow(unused_macros)]
 macro_rules! debug_expr {
     ($expr:expr, $cfg:expr, $vartab:expr) => {{
