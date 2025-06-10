@@ -50,6 +50,7 @@ pub enum Type {
     Slice(Box<Type>),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum InternalCallTy {
     Static { cfg_no: usize },
