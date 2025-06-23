@@ -836,7 +836,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             res
         }
         Expression::Equal { left, right, .. } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 let mut res = bin.context.bool_type().const_int(1, false);
                 let left = expression(target, bin, left, vartab, function).into_array_value();
                 let right = expression(target, bin, right, vartab, function).into_array_value();
@@ -879,7 +879,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             }
         }
         Expression::NotEqual { left, right, .. } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 let mut res = bin.context.bool_type().const_int(0, false);
                 let left = expression(target, bin, left, vartab, function).into_array_value();
                 let right = expression(target, bin, right, vartab, function).into_array_value();
@@ -927,7 +927,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             right,
             ..
         } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 compare_address(
                     target,
                     bin,
@@ -963,7 +963,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             right,
             ..
         } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 compare_address(
                     target,
                     bin,
@@ -999,7 +999,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             right,
             ..
         } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 compare_address(
                     target,
                     bin,
@@ -1035,7 +1035,7 @@ pub(super) fn expression<'a, T: TargetRuntime<'a> + ?Sized>(
             right,
             ..
         } => {
-            if left.ty().is_address() {
+            if left.ty().is_address(bin.ns) {
                 compare_address(
                     target,
                     bin,
