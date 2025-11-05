@@ -42,6 +42,7 @@ Contents
    targets/solana.rst
    targets/polkadot.rst
    targets/soroban.rst
+   targets/stylus.rst
 
 .. toctree::
    :maxdepth: 3
