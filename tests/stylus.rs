@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use assert_cmd::cargo::cargo_bin;
 use regex::Regex;
 use std::{
     env::{var, var_os},
@@ -156,7 +155,7 @@ fn deploy(path: impl AsRef<Path>, contract: &str, activate: bool) -> Result<(Tem
     command(
         dir,
         [
-            cargo_bin("solang").to_str().unwrap(),
+            env!("CARGO_BIN_EXE_solang"),
             "compile",
             &path.as_ref().to_string_lossy(),
             "--target=stylus",
