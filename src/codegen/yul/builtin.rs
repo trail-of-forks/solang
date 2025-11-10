@@ -117,7 +117,6 @@ pub(crate) fn process_builtin(
         | YulBuiltInFunction::ReturnDataCopy
         // Functions that manage contracts
         | YulBuiltInFunction::Create
-        | YulBuiltInFunction::Create2
         | YulBuiltInFunction::Call
         | YulBuiltInFunction::CallCode
         | YulBuiltInFunction::DelegateCall
@@ -142,6 +141,14 @@ pub(crate) fn process_builtin(
             // Sema will only allow this for EVM. This is a placeholder until correct codegen is in place
             cfg.add(vartab, Instr::Unimplemented { reachable: !matches!(builtin_ty, YulBuiltInFunction::Return | YulBuiltInFunction::Revert | YulBuiltInFunction::Stop) });
             Expression::Poison
+        }
+
+        YulBuiltInFunction::Create2 => {
+            let value = expression(&args[0], contract_no, ns, vartab, cfg, opt);
+            let code = expression(&args[1], contract_no, ns, vartab, cfg, opt);
+            let code_len = expression(&args[2], contract_no, ns, vartab, cfg, opt);
+            let salt = expression(&args[3], contract_no, ns, vartab, cfg, opt);
+            Expression::Builtin { loc: *loc, tys: vec![Type::Address(false)], kind: Builtin::Create2, args: vec![value, code, code_len, salt] }
         }
 
         YulBuiltInFunction::Origin => {
