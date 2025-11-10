@@ -864,6 +864,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
     }
 
     /// builtin expressions
+    #[warn(unused_variables)]
     fn builtin<'b>(
         &self,
         bin: &Binary<'b>,
@@ -1055,6 +1056,65 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                 .try_as_basic_value()
                 .left()
                 .unwrap()
+            }
+            Expression::Builtin {
+                kind: Builtin::Create2,
+                args,
+                ..
+            } => {
+                let [value, code, code_len, salt] = args.as_slice() else {
+                    panic!()
+                };
+
+                let value = expression(self, bin, value, vartab, function);
+                let code = expression(self, bin, code, vartab, function);
+                // smoelius: `code_len` is ignored.
+                let _code_len = expression(self, bin, code_len, vartab, function);
+                let salt = expression(self, bin, salt, vartab, function);
+
+                let code_ptr = bin.vector_bytes(code);
+
+                let code_len = bin.vector_len(code);
+
+                let value_ptr = bin
+                    .builder
+                    .build_alloca(bin.value_type(), "value_ptr")
+                    .unwrap();
+                bin.builder.build_store(value_ptr, value).unwrap();
+
+                let salt_buf = bin.builder.build_alloca(bin.value_type(), "salt").unwrap();
+                bin.builder.build_store(salt_buf, salt).unwrap();
+
+                let address = bin
+                    .builder
+                    .build_array_alloca(
+                        bin.context.i8_type(),
+                        i32_const!(bin.ns.address_length as u64),
+                        "address",
+                    )
+                    .unwrap();
+
+                let revert_data_len = bin
+                    .builder
+                    .build_alloca(bin.llvm_type(&ast::Type::Uint(32)), "revert_data_len")
+                    .unwrap();
+
+                call!(
+                    "create2",
+                    &[
+                        code_ptr.into(),
+                        code_len.into(),
+                        value_ptr.into(),
+                        salt_buf.into(),
+                        address.into(),
+                        revert_data_len.into()
+                    ],
+                    "create2"
+                );
+
+                bin.builder
+                    .build_load(bin.address_type(), address, "address")
+                    .unwrap()
             }
             Expression::Builtin {
                 kind: Builtin::Gasleft,

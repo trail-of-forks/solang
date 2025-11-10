@@ -1808,6 +1808,7 @@ pub enum Builtin {
     ChainId,
     ContractCode,
     ContractCodehash,
+    Create2,
     Gasleft,
     GasLimit,
     Gasprice,
