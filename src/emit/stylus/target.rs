@@ -937,11 +937,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
             } => {
                 let coinbase = bin
                     .builder
-                    .build_array_alloca(
-                        bin.context.i8_type(),
-                        i32_const!(bin.ns.address_length as u64),
-                        "coinbase",
-                    )
+                    .build_alloca(bin.address_type(), "coinbase")
                     .unwrap();
 
                 call!("block_coinbase", &[coinbase.into()], "block_coinbase");
@@ -1087,11 +1083,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
 
                 let address = bin
                     .builder
-                    .build_array_alloca(
-                        bin.context.i8_type(),
-                        i32_const!(bin.ns.address_length as u64),
-                        "address",
-                    )
+                    .build_alloca(bin.address_type(), "address")
                     .unwrap();
 
                 let revert_data_len = bin
@@ -1144,11 +1136,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
             } => {
                 let address = bin
                     .builder
-                    .build_array_alloca(
-                        bin.context.i8_type(),
-                        i32_const!(bin.ns.address_length as u64),
-                        "address",
-                    )
+                    .build_alloca(bin.address_type(), "address")
                     .unwrap();
 
                 call!("contract_address", &[address.into()], "contract_address");
@@ -1218,11 +1206,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
             } => {
                 let address = bin
                     .builder
-                    .build_array_alloca(
-                        bin.context.i8_type(),
-                        i32_const!(bin.ns.address_length as u64),
-                        "address",
-                    )
+                    .build_alloca(bin.address_type(), "address")
                     .unwrap();
 
                 call!("tx_origin", &[address.into()], "tx_origin");
@@ -1237,11 +1221,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
             } => {
                 let address = bin
                     .builder
-                    .build_array_alloca(
-                        bin.context.i8_type(),
-                        i32_const!(bin.ns.address_length as u64),
-                        "address",
-                    )
+                    .build_alloca(bin.address_type(), "address")
                     .unwrap();
 
                 call!("msg_sender", &[address.into()], "msg_sender");
