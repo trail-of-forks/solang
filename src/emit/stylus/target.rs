@@ -651,7 +651,176 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
         args: &[BasicMetadataValueEnum<'a>],
         first_arg_type: Option<BasicTypeEnum>,
     ) -> Option<BasicValueEnum<'a>> {
-        unimplemented!()
+        emit_context!(bin);
+
+        assert_eq!(5, args.len());
+
+        let [hash, v, r, s, res] = args else {
+            panic!();
+        };
+
+        // Construct the precompile address (0x0000000000000000000000000000000000000001)
+        // Address is stored in big-endian, so 0x01 goes in the last byte
+        let contract = bin
+            .builder
+            .build_alloca(bin.value_type(), "contract")
+            .unwrap();
+        // Initialize address to zero
+        bin.builder
+            .build_store(contract, bin.address_type().const_zero())
+            .unwrap();
+        // Set last byte to 0x01 by casting to byte pointer
+        let contract_byte_ptr = bin
+            .builder
+            .build_pointer_cast(
+                contract,
+                bin.context.ptr_type(AddressSpace::default()),
+                "contract_byte_ptr",
+            )
+            .unwrap();
+        bin.builder
+            .build_store(
+                ptr_plus_offset(
+                    bin,
+                    contract_byte_ptr,
+                    bin.context.i32_type().const_int(19 as u64, false),
+                ),
+                bin.context.i8_type().const_int(0x01, false),
+            )
+            .unwrap();
+
+        // Construct calldata: hash (32 bytes) + v (1 byte encoded as 32 bytes) + r (32 bytes) + s (32 bytes)
+        // ecrecover expects big-endian format, so we need to byte-swap hash, v, r, and s
+        let calldata = bin
+            .builder
+            .build_array_alloca(
+                bin.context.i8_type(),
+                i32_const!(32 + 32 + 32 + 32 as u64),
+                "buffer",
+            )
+            .unwrap();
+
+        // Convert hash from little-endian to big-endian
+        let hash_be = bin
+            .builder
+            .build_alloca(bin.value_type(), "hash_be")
+            .unwrap();
+        let hash_ptr = bin
+            .builder
+            .build_alloca(bin.value_type(), "hash_ptr")
+            .unwrap();
+        bin.builder
+            .build_store(hash_ptr, hash.into_int_value())
+            .unwrap();
+        call!(
+            "__leNtobeN",
+            &[hash_ptr.into(), hash_be.into(), i32_const!(32).into()]
+        );
+        call!(
+            "__memcpy",
+            &[calldata.into(), hash_be.into(), i32_const!(32).into()]
+        );
+
+        // Convert v from little-endian to big-endian
+        let v_be = bin.builder.build_alloca(bin.value_type(), "v_be").unwrap();
+        let v_ptr = bin.builder.build_alloca(bin.value_type(), "v_ptr").unwrap();
+        bin.builder.build_store(v_ptr, v.into_int_value()).unwrap();
+        call!(
+            "__leNtobeN",
+            &[v_ptr.into(), v_be.into(), i32_const!(32).into()]
+        );
+        call!(
+            "__memcpy",
+            &[
+                ptr_plus_offset(bin, calldata, i32_const!(32)).into(),
+                v_be.into(),
+                i32_const!(32).into()
+            ]
+        );
+
+        // Convert r from little-endian to big-endian
+        let r_be = bin.builder.build_alloca(bin.value_type(), "r_be").unwrap();
+        let r_ptr = bin.builder.build_alloca(bin.value_type(), "r_ptr").unwrap();
+        bin.builder.build_store(r_ptr, r.into_int_value()).unwrap();
+        call!(
+            "__leNtobeN",
+            &[r_ptr.into(), r_be.into(), i32_const!(32).into()]
+        );
+        call!(
+            "__memcpy",
+            &[
+                ptr_plus_offset(bin, calldata, i32_const!(64)).into(),
+                r_be.into(),
+                i32_const!(32).into()
+            ]
+        );
+
+        // Convert s from little-endian to big-endian
+        let s_be = bin.builder.build_alloca(bin.value_type(), "s_be").unwrap();
+        let s_ptr = bin.builder.build_alloca(bin.value_type(), "s_ptr").unwrap();
+        bin.builder.build_store(s_ptr, s.into_int_value()).unwrap();
+        call!(
+            "__leNtobeN",
+            &[s_ptr.into(), s_be.into(), i32_const!(32).into()]
+        );
+        call!(
+            "__memcpy",
+            &[
+                ptr_plus_offset(bin, calldata, i32_const!(96)).into(),
+                s_be.into(),
+                i32_const!(32).into()
+            ]
+        );
+
+        let calldata_len = i32_const!(32 + 32 + 32 + 32);
+
+        let gas = i64_const!(i32::MAX as u64);
+
+        let return_data_len = bin
+            .builder
+            .build_alloca(bin.llvm_type(&Type::Uint(32)), "return_data_len")
+            .unwrap();
+
+        call!(
+            "static_call_contract",
+            &[
+                contract.into(),
+                calldata.into(),
+                calldata_len.into(),
+                gas.into(),
+                return_data_len.into()
+            ],
+            "static_call_contract"
+        );
+
+        // ecrecover returns 32 bytes with the address right-aligned (last 20 bytes)
+        let return_data_buffer = bin
+            .builder
+            .build_array_alloca(bin.context.i8_type(), i32_const!(32), "return_data_buffer")
+            .unwrap();
+
+        call!(
+            "read_return_data",
+            &[
+                return_data_buffer.into(),
+                i32_zero!().into(),
+                i32_const!(32).into()
+            ],
+            "read_return_data"
+        );
+
+        // Skip the first 12 bytes of padding to get the 20-byte address
+        let address_ptr = ptr_plus_offset(bin, return_data_buffer, i32_const!(12));
+        let signer = bin
+            .builder
+            .build_load(bin.address_type(), address_ptr, "signer")
+            .unwrap();
+
+        bin.builder
+            .build_store(res.into_pointer_value(), signer)
+            .unwrap();
+
+        None
     }
 
     /// Calls constructor
@@ -1543,5 +1712,30 @@ mod local {
         bin.builder
             .build_int_to_ptr(ptr_as_int_plus_offset, ptr.get_type(), "ptr_plus_offset")
             .unwrap()
+    }
+}
+
+// smoelius: `dump_array` is useful for debugging.
+#[allow(dead_code)]
+fn dump_array<'a, T: TargetRuntime<'a>>(
+    target: &T,
+    bin: &Binary<'a>,
+    array: BasicValueEnum<'a>,
+    array_len: u64,
+    function: FunctionValue<'a>,
+) {
+    emit_context!(bin);
+    let p = array.into_pointer_value();
+    for i in 0..array_len {
+        let x = bin
+            .builder
+            .build_load(
+                bin.llvm_type(&ast::Type::Uint(8)),
+                ptr_plus_offset(bin, p, i32_const!(i)),
+                "x",
+            )
+            .unwrap()
+            .into_int_value();
+        crate::emit::debug_value!(target, bin, Type::Uint(8), x, function);
     }
 }

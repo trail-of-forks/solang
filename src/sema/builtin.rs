@@ -332,7 +332,7 @@ pub static BUILTIN_FUNCTIONS: Lazy<[Prototype; 29]> = Lazy::new(|| {
                 Type::Bytes(32),
             ],
             ret: vec![Type::Address(false)],
-            target: vec![Target::EVM],
+            target: vec![Target::EVM, Target::Stylus],
             doc: "Recover the address associated with the public key from elliptic curve signature",
             constant: false,
         },
@@ -1939,5 +1939,80 @@ impl Namespace {
             cache_no: None,
             import_no: None,
         });
+
+        let loc = pt::Loc::Builtin;
+        let identifier = |name: &str| Identifier {
+            name: name.into(),
+            loc,
+        };
+
+        self.functions.push(Function::new(
+            loc,
+            loc,
+            identifier("ecrecover"),
+            None,
+            Vec::new(),
+            pt::FunctionTy::Function,
+            Some(pt::Mutability::Pure(loc)),
+            pt::Visibility::Public(Some(loc)),
+            vec![
+                Parameter {
+                    loc,
+                    id: Some(identifier("hash")),
+                    ty: Type::Bytes(32),
+                    ty_loc: Some(loc),
+                    readonly: false,
+                    indexed: false,
+                    infinite_size: false,
+                    recursive: false,
+                    annotation: None,
+                },
+                Parameter {
+                    loc,
+                    id: Some(identifier("v")),
+                    ty: Type::Uint(8),
+                    ty_loc: Some(loc),
+                    readonly: false,
+                    indexed: false,
+                    infinite_size: false,
+                    recursive: false,
+                    annotation: None,
+                },
+                Parameter {
+                    loc,
+                    id: Some(identifier("r")),
+                    ty: Type::Bytes(32),
+                    ty_loc: Some(loc),
+                    readonly: false,
+                    indexed: false,
+                    infinite_size: false,
+                    recursive: false,
+                    annotation: None,
+                },
+                Parameter {
+                    loc,
+                    id: Some(identifier("s")),
+                    ty: Type::Bytes(32),
+                    ty_loc: Some(loc),
+                    readonly: false,
+                    indexed: false,
+                    infinite_size: false,
+                    recursive: false,
+                    annotation: None,
+                },
+            ],
+            vec![Parameter {
+                loc: pt::Loc::Builtin,
+                id: None,
+                ty: Type::Address(false),
+                ty_loc: None,
+                readonly: false,
+                indexed: false,
+                infinite_size: false,
+                recursive: false,
+                annotation: None,
+            }],
+            self,
+        ));
     }
 }

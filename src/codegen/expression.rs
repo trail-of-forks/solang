@@ -2319,12 +2319,37 @@ fn expr_builtin(
 
             // Polkadot: call ecdsa_recover(): https://docs.rs/pallet-contracts/latest/pallet_contracts/api_doc/trait.Version0.html#tymethod.ecdsa_recover
             // Solana: see how neon implements this
-            cfg.add(vartab, Instr::Unimplemented { reachable: true });
+            let var_temp = vartab.temp(
+                &pt::Identifier {
+                    name: "signer".to_owned(),
+                    loc: *loc,
+                },
+                &Type::Address(false),
+            );
 
-            Expression::NumberLiteral {
-                loc: *loc,
-                ty: Type::Bool,
-                value: 0.into(),
+            let [hash, v, r, s] = args else {
+                panic!();
+            };
+
+            let hash = expression(hash, cfg, contract_no, func, ns, vartab, opt);
+            let v = expression(v, cfg, contract_no, func, ns, vartab, opt);
+            let r = expression(r, cfg, contract_no, func, ns, vartab, opt);
+            let s = expression(s, cfg, contract_no, func, ns, vartab, opt);
+
+            cfg.add(
+                vartab,
+                Instr::Call {
+                    res: vec![var_temp],
+                    return_tys: vec![Type::Address(false)],
+                    call: InternalCallTy::Builtin { ast_func_no: 0 },
+                    args: vec![hash, v, r, s],
+                },
+            );
+
+            Expression::Variable {
+                loc: Loc::Codegen,
+                ty: Type::Address(false),
+                var_no: var_temp,
             }
         }
         ast::Builtin::TypeName => {
