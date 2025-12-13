@@ -2,7 +2,7 @@ Stylus
 ======
 
 The flavor of Solidity that Solang supports for Stylus tries to be compatible with conventional Solidity as much as possible.
-However, there are two crucial differences, described below.
+There are a few crucial differences, however, described below.
 
 Programs must be activated
 __________________________
@@ -59,3 +59,18 @@ In the above:
 - `ArbSys <https://docs.arbitrum.io/build-decentralized-apps/precompiles/reference#arbsys>`_ is the interface of the ``ArbSys`` precompile
 - 0x64 is the precompile's address
 - ``arbBlockNumber`` is the function that returns the L2 block number
+
+Dynamic byte array memory layout
+________________________________
+
+In Ethereum Solidity, dynamic byte arrays are laid out as a 32-byte length followed by the array's contents.
+However, WASM Solang represents a dynamic byte array as:
+
+- a 32-bit (not byte) length
+- a second copy of the 32-bit (not byte) length
+- the array's contents
+
+Thus, code that was written for Ethereum Solidity and that relies on the Ethereum Solidity memory layout cannot be ported unchanged to WASM Solang.
+The code will have to adjust for the differences in the array's memory layout.
+
+See https://github.com/hyperledger-solang/solang/blob/45f01b471800e9d271eff4e9030897e306580ec8/stdlib/stdlib.h#L6 for more details.
