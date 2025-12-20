@@ -1,9 +1,13 @@
 pragma solidity =0.5.16;
 
-import '../UniswapV2ERC20.sol';
+import "../UniswapV2ERC20.sol";
 
 contract ERC20 is UniswapV2ERC20 {
-    constructor(uint _totalSupply) public {
+    bool inited;
+
+    function init(uint _totalSupply) public {
+        require(!inited);
         _mint(msg.sender, _totalSupply);
+        inited = true;
     }
 }
