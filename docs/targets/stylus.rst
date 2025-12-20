@@ -37,6 +37,48 @@ The first is the Stylus version the program was activated against; the second is
 Note that if the program was already activated, the call to ``activateProgram`` will revert.
 Thus, one should structure their program to account for this possibility.
 
+Constructors
+____________
+
+For the reason just given, constructors do not work in Stylus like they do in conventional Solidity.
+That is, one cannot simply create a contract and expect its constructor to be called.
+Instead, one must create the contract, activate it, and then call a function to simulate the contract's construction.
+
+The following is an example. In conventional Solidity, the following would be a perfectly reasonable program:
+
+.. code-block:: solidity
+
+    contract C {
+        uint256 x;
+
+        constructor(uint256 _x) {
+            x = _x;
+        }
+
+        function get_the_number() public view returns (uint256) {
+            return x;
+        }
+    }
+
+But in Stylus, one would have to write the program something like this:
+
+.. code-block:: solidity
+
+    contract C {
+        bool inited;
+        uint256 x;
+
+        function init(uint256 _x) public {
+            require(!inited);
+            x = _x;
+            inited = true;
+        }
+
+        function get_the_number() public view returns (uint256) {
+            return x;
+        }
+    }
+
 ``block.number``
 ________________
 
