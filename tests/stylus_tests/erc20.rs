@@ -26,11 +26,11 @@ fn erc20() {
     println!("{}", stdout);
     assert_eq!("0\n", stdout);
 
-    let stdout = send(dir, &address, ["init(uint256)", balance]).unwrap();
+    let stdout = send(dir, &address, ["initialize(uint256)", balance]).unwrap();
     println!("{}", stdout);
 
     // smoelius: Calling `init` a second time should revert.
-    let error = send(dir, &address, ["init(uint256)", balance]).unwrap_err();
+    let error = send(dir, &address, ["initialize(uint256)", balance]).unwrap_err();
     println!("{:?}", error);
 
     let stdout = call(dir, &address, ["totalSupply()(uint256)"]).unwrap();
