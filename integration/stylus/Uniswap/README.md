@@ -3,8 +3,8 @@ https://github.com/Uniswap/v2-core/tree/master/contracts
 
 Specifically:
 
-- the assembly code was removed
-- dead code that resulted from that was removed or commented out
-- some small whitespace changes were made
+1. Contracts `UniswapV2PairBase` and `UniswapV2PairCreator` were added. The purposes of these contracts is to get `UniswapV2Pair`'s WASM file to compress to under 24KB.
+2. The assembly code was removed.
+3. Dead code that resulted from 2 was removed or commented out.
 
-Sam Moelius (2025-12-16)
+Sam Moelius (2025-12-24)

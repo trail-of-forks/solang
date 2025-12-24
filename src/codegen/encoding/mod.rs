@@ -428,6 +428,47 @@ pub(crate) trait AbiEncoding {
             (offset.clone(), None)
         } else {
             let size = if ns.target == Target::Stylus {
+                // smoelius: `next_offset` includes the discriminator; `next_data_offset` does not.
+                // `next_offset` is where data is written into the buffer. `next_data_offset` is the
+                // value written into the buffer.
+                let next_offset = Expression::Add {
+                    loc: Codegen,
+                    ty: Type::Uint(32),
+                    overflowing: false,
+                    left: Box::new(offset.clone()),
+                    right: Box::new(Expression::NumberLiteral {
+                        loc: Codegen,
+                        ty: Type::Uint(32),
+                        value: BigInt::from(32),
+                    }),
+                };
+                let next_data_offset = Expression::Add {
+                    loc: Codegen,
+                    ty: Type::Uint(32),
+                    overflowing: false,
+                    left: Box::new(offset.clone()),
+                    right: Box::new(Expression::NumberLiteral {
+                        loc: Codegen,
+                        ty: Type::Uint(32),
+                        value: BigInt::from(28),
+                    }),
+                };
+                let next_data_offset_swapped = Expression::ByteSwap {
+                    expr: Box::new(Expression::ZeroExt {
+                        loc: Codegen,
+                        ty: Type::Uint(256),
+                        expr: Box::new(next_data_offset.clone()),
+                    }),
+                    le_to_be: true,
+                };
+                cfg.add(
+                    vartab,
+                    Instr::WriteBuffer {
+                        buf: buffer.clone(),
+                        offset: offset.clone(),
+                        value: next_data_offset_swapped,
+                    },
+                );
                 let swapped_bytes = Expression::ByteSwap {
                     expr: Box::new(Expression::ZeroExt {
                         loc: Codegen,
@@ -440,14 +481,14 @@ pub(crate) trait AbiEncoding {
                     vartab,
                     Instr::WriteBuffer {
                         buf: buffer.clone(),
-                        offset: offset.clone(),
+                        offset: next_offset,
                         value: swapped_bytes,
                     },
                 );
                 Expression::NumberLiteral {
                     loc: Codegen,
                     ty: Type::Uint(32),
-                    value: BigInt::from(32),
+                    value: BigInt::from(64),
                 }
             } else {
                 self.encode_size(&len, buffer, offset, ns, vartab, cfg)
@@ -955,12 +996,27 @@ pub(crate) trait AbiEncoding {
             Type::DynamicBytes | Type::String => {
                 // String and Dynamic bytes are encoded as size + elements
                 let (array_length_var, size_length) = if ns.target == Target::Stylus {
+                    let len_offset = Expression::Builtin {
+                        loc: Codegen,
+                        tys: vec![Uint(256)],
+                        kind: Builtin::ReadFromBuffer,
+                        args: vec![buffer.clone(), offset.clone()],
+                    };
+                    let len_offset_swapped = Expression::ByteSwap {
+                        expr: Box::new(len_offset),
+                        le_to_be: false,
+                    };
+                    let len_offset_swapped_truncated = Expression::Trunc {
+                        loc: Codegen,
+                        ty: Uint(32),
+                        expr: Box::new(len_offset_swapped),
+                    };
                     let array_length_var = vartab.temp_anonymous(&Uint(32));
                     let len = Expression::Builtin {
                         loc: Codegen,
                         tys: vec![Uint(256)],
                         kind: Builtin::ReadFromBuffer,
-                        args: vec![buffer.clone(), offset.clone()],
+                        args: vec![buffer.clone(), len_offset_swapped_truncated.clone()],
                     };
                     let len_swapped = Expression::ByteSwap {
                         expr: Box::new(len),
@@ -979,12 +1035,18 @@ pub(crate) trait AbiEncoding {
                             expr: len_swapped_truncated,
                         },
                     );
+                    // smoelius: In Stylus and EVM, dynamic bytes are encoded as a 32-byte offset to
+                    // a 32-byte length followed by the bytes themselves. However, this function is
+                    // expected to return the number of bytes read. So we add an extra 32 for the
+                    // offset. Note that it would seem reasonable to compute the difference between
+                    // the offset and the end of the array length. However, the value to which the
+                    // "number of bytes read" is compared does not include the discriminator.
                     (
                         array_length_var,
                         Expression::NumberLiteral {
                             loc: Codegen,
                             ty: Type::Uint(32),
-                            value: BigInt::from(32),
+                            value: BigInt::from(64),
                         },
                     )
                 } else {
@@ -1663,12 +1725,17 @@ pub(crate) trait AbiEncoding {
             }
             Type::String | Type::DynamicBytes => {
                 if ns.target == Target::Stylus {
-                    let size_prefix = Expression::NumberLiteral {
+                    let offset_size = Expression::NumberLiteral {
                         loc: Codegen,
                         ty: Uint(32),
                         value: BigInt::from(32),
                     };
-                    let length = Expression::Builtin {
+                    let array_length_size = Expression::NumberLiteral {
+                        loc: Codegen,
+                        ty: Uint(32),
+                        value: BigInt::from(32),
+                    };
+                    let array_size = Expression::Builtin {
                         loc: Codegen,
                         tys: vec![Uint(32)],
                         kind: Builtin::ArrayLength,
@@ -1678,8 +1745,14 @@ pub(crate) trait AbiEncoding {
                         loc: Codegen,
                         ty: Uint(32),
                         overflowing: false,
-                        left: Box::new(size_prefix),
-                        right: Box::new(length),
+                        left: Box::new(offset_size),
+                        right: Box::new(Expression::Add {
+                            loc: Codegen,
+                            ty: Uint(32),
+                            overflowing: false,
+                            left: Box::new(array_length_size),
+                            right: Box::new(array_size),
+                        }),
                     }
                 } else {
                     self.calculate_string_size(expr, vartab, cfg)
