@@ -13,6 +13,7 @@ use walkdir::WalkDir;
 
 mod stylus_tests;
 
+const ADDRESS: &str = "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E";
 const PRIVATE_KEY: &str = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
 
 #[derive(Debug)]

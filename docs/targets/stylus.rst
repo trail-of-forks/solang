@@ -79,6 +79,46 @@ But in Stylus, one would have to write the program something like this:
         }
     }
 
+WASM files are size limited
+___________________________
+
+In Arbitrum Stylus, the size of a Brotli-compressed WASM file must `not exceed 24KB <https://docs.arbitrum.io/stylus/how-tos/optimizing-binaries>`_.
+This can be inhibiting.
+For example, one cannot simply compile and deploy the ``UniswapV2Factory`` contract because it would exceed this size limit.
+
+The bulk of the ``UniswapV2Factory``'s size comes from the ``UniswapV2Pair`` contract.
+So one way to reduce the ``UniswapV2Factory``'s size is to move the logic to create ``UniswapV2Pair``s into another contract.
+The following code snippet shows one way this can be done.
+Note that the new ``createPair`` function uses modern Solidity syntax, rather than assembly, to pass a salt to ``new``.
+
+.. code-block:: solidity
+
+    interface IUniswapV2PairCreator {
+        ...
+        function createPair(bytes32 salt) external returns (address pair);
+    }
+
+    import './interfaces/IUniswapV2PairCreator.sol';
+    import './UniswapV2Pair.sol';
+
+    contract UniswapV2PairCreator is IUniswapV2PairCreator {
+        ...
+        function createPair(bytes32 salt) external returns (address pair) {
+            UniswapV2Pair pair = new UniswapV2Pair{salt: salt}();
+            pair.setFactoryAndBase(msg.sender, base);
+            return address(pair);
+        }
+    }
+
+    ...
+    // In `UniswapV2Factory`, remove all references to the `UniswapV2Pair` contract and change the creation code as follows.
+    bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+    // assembly {
+    //     pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
+    // }
+    pair = UniswapV2PairCreator(pairCreator).createPair(salt);
+    ...
+
 ``block.number``
 ________________
 

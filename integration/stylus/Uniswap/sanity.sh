@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
-for X in UniswapV2ERC20.sol UniswapV2Factory.sol UniswapV2Pair.sol; do
-  ../../../target/debug/solang compile --target stylus "$X"
+for X in *.sol; do
+  ../../../target/debug/solang compile --target stylus "$X" -O=less --no-constant-folding
+  brotli -f -q 11 "$(basename "$X" .sol).wasm"
 done
+
+ls -lrt *.br

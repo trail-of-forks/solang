@@ -48,5 +48,7 @@ interface IUniswapV2Pair {
     function skim(address to) external;
     function sync() external;
 
+    function setFactoryAndBase(address, address) external;
+
     function initialize(address, address) external;
 }
