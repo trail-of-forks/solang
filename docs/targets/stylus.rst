@@ -65,13 +65,13 @@ But in Stylus, one would have to write the program something like this:
 .. code-block:: solidity
 
     contract C {
-        bool inited;
+        bool initialized;
         uint256 x;
 
-        function init(uint256 _x) public {
-            require(!inited);
+        function initialize(uint256 _x) public {
+            require(!initialized);
             x = _x;
-            inited = true;
+            initialized = true;
         }
 
         function get_the_number() public view returns (uint256) {
