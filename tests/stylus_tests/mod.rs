@@ -7,4 +7,5 @@ mod erc20;
 mod milestone_1;
 mod milestone_2;
 mod milestone_3;
+mod uniswap;
 mod value;
