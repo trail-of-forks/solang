@@ -29,7 +29,7 @@ fn erc20() {
     let stdout = send(dir, &address, ["initialize(uint256)", balance]).unwrap();
     println!("{}", stdout);
 
-    // smoelius: Calling `init` a second time should revert.
+    // smoelius: Calling `initialize` a second time should revert.
     let error = send(dir, &address, ["initialize(uint256)", balance]).unwrap_err();
     println!("{:?}", error);
 
