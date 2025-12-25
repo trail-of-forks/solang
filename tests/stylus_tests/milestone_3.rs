@@ -45,11 +45,14 @@ fn milestone_3() {
         .unwrap();
 
     let stdout = call(dir, &address, ["getCode()"]).unwrap();
-    let len_prefixed_code = stdout.strip_prefix("0x").unwrap();
+    let len_prefixed_code = stdout
+        .strip_prefix("0x0000000000000000000000000000000000000000000000000000000000000020")
+        .unwrap();
     let len = usize::from_str_radix(&len_prefixed_code[..64], 16).unwrap();
     let code = hex::decode(&len_prefixed_code[64..].trim_end()).unwrap();
-    assert_eq!(len, code.len());
-    let digest = keccak256(&code);
+    assert!(len < code.len());
+    assert!(code[len..].iter().all(|&x| x == 0));
+    let digest = keccak256(&code[..len]);
     assert_eq!(codehash, hex::encode(digest));
 
     let gasprice = get(&labeled_stdout, "gasprice").unwrap();
