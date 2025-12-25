@@ -367,6 +367,7 @@ impl<'a> Dispatch<'a> {
                 &mut self.vartab,
                 &mut self.cfg,
                 false,
+                false,
             );
             self.add(Instr::ReturnData { data, data_len });
         }

@@ -106,7 +106,11 @@ impl SolidityError {
                             initializer: bytes.into(),
                         }
                     })
-                    .or_else(|| abi_encode(loc, args, ns, vartab, cfg, false).0.into())
+                    .or_else(|| {
+                        abi_encode(loc, args, ns, vartab, cfg, false, false)
+                            .0
+                            .into()
+                    })
             }
             Self::Custom { exprs, .. } => {
                 let mut args = exprs.to_owned();
@@ -126,7 +130,11 @@ impl SolidityError {
                             initializer: bytes.into(),
                         }
                     })
-                    .or_else(|| abi_encode(loc, args, ns, vartab, cfg, false).0.into())
+                    .or_else(|| {
+                        abi_encode(loc, args, ns, vartab, cfg, false, false)
+                            .0
+                            .into()
+                    })
             }
             Self::Panic(code) => {
                 let code = Expression::NumberLiteral {

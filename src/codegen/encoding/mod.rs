@@ -27,8 +27,11 @@ use num_integer::Integer;
 use num_traits::{One, Zero};
 use solang_parser::pt::{Loc, Loc::Codegen};
 use std::ops::{AddAssign, MulAssign, Sub};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use self::buffer_validator::BufferValidator;
+
+static OFFSET_INCLUDES_FUNCTION_SELECTOR: AtomicBool = AtomicBool::new(false);
 
 /// Insert encoding instructions into the `cfg` for any `Expression` in `args`.
 /// Returns a pointer to the encoded data and the size as a 32bit integer.
@@ -51,11 +54,13 @@ pub(super) fn abi_encode(
     vartab: &mut Vartable,
     cfg: &mut ControlFlowGraph,
     packed: bool,
+    offset_includes_function_selector: bool,
 ) -> (Expression, Expression) {
     if ns.target == Target::Soroban {
         let ret = soroban_encode(loc, args, ns, vartab, cfg, packed);
         return (ret.0, ret.1);
     }
+    OFFSET_INCLUDES_FUNCTION_SELECTOR.store(offset_includes_function_selector, Ordering::SeqCst);
     let mut encoder = create_encoder(ns, packed);
     let size = calculate_size_args(&mut encoder, &args, ns, vartab, cfg);
     let encoded_bytes = vartab.temp_name("abi_encoded", &Type::DynamicBytes);
@@ -424,13 +429,13 @@ pub(crate) trait AbiEncoding {
         cfg: &mut ControlFlowGraph,
     ) -> Expression {
         let len = array_outer_length(expr, vartab, cfg);
-        let (data_offset, size) = if self.is_packed() {
-            (offset.clone(), None)
+        let (data_offset, size, trailing_padding) = if self.is_packed() {
+            (offset.clone(), None, None)
         } else {
-            let size = if ns.target == Target::Stylus {
-                // smoelius: `next_offset` includes the discriminator; `next_data_offset` does not.
-                // `next_offset` is where data is written into the buffer. `next_data_offset` is the
-                // value written into the buffer.
+            let (size, trailing_padding) = if ns.target == Target::Stylus {
+                // smoelius: `next_offset` may include a function selector, but `next_data_offset`
+                // should not. `next_offset` is where data is written into the buffer.
+                // `next_data_offset` is the value written into the buffer.
                 let next_offset = Expression::Add {
                     loc: Codegen,
                     ty: Type::Uint(32),
@@ -450,7 +455,13 @@ pub(crate) trait AbiEncoding {
                     right: Box::new(Expression::NumberLiteral {
                         loc: Codegen,
                         ty: Type::Uint(32),
-                        value: BigInt::from(28),
+                        value: BigInt::from(
+                            if OFFSET_INCLUDES_FUNCTION_SELECTOR.load(Ordering::SeqCst) {
+                                28
+                            } else {
+                                32
+                            },
+                        ),
                     }),
                 };
                 let next_data_offset_swapped = Expression::ByteSwap {
@@ -485,15 +496,25 @@ pub(crate) trait AbiEncoding {
                         value: swapped_bytes,
                     },
                 );
-                Expression::NumberLiteral {
-                    loc: Codegen,
-                    ty: Type::Uint(32),
-                    value: BigInt::from(64),
-                }
+                (
+                    Expression::NumberLiteral {
+                        loc: Codegen,
+                        ty: Type::Uint(32),
+                        value: BigInt::from(64),
+                    },
+                    Some(trailing_padding(&len)),
+                )
             } else {
-                self.encode_size(&len, buffer, offset, ns, vartab, cfg)
+                (
+                    self.encode_size(&len, buffer, offset, ns, vartab, cfg),
+                    None,
+                )
             };
-            (offset.clone().add_u32(size.clone()), Some(size))
+            (
+                offset.clone().add_u32(size.clone()),
+                Some(size),
+                trailing_padding,
+            )
         };
         // ptr + offset + size_of_integer
         let dest_address = Expression::AdvancePointer {
@@ -508,11 +529,14 @@ pub(crate) trait AbiEncoding {
                 bytes: len.clone(),
             },
         );
+        let mut len = len;
         if let Some(size) = size {
-            len.add_u32(size)
-        } else {
-            len
-        }
+            len = len.add_u32(size);
+        };
+        if let Some(trailing_padding) = trailing_padding {
+            len = len.add_u32(trailing_padding);
+        };
+        len
     }
 
     /// Encode `expr` into `buffer` as a struct type.
@@ -1016,7 +1040,7 @@ pub(crate) trait AbiEncoding {
                         loc: Codegen,
                         tys: vec![Uint(256)],
                         kind: Builtin::ReadFromBuffer,
-                        args: vec![buffer.clone(), len_offset_swapped_truncated.clone()],
+                        args: vec![buffer.clone(), len_offset_swapped_truncated],
                     };
                     let len_swapped = Expression::ByteSwap {
                         expr: Box::new(len),
@@ -1039,8 +1063,9 @@ pub(crate) trait AbiEncoding {
                     // a 32-byte length followed by the bytes themselves. However, this function is
                     // expected to return the number of bytes read. So we add an extra 32 for the
                     // offset. Note that it would seem reasonable to compute the difference between
-                    // the offset and the end of the array length. However, the value to which the
-                    // "number of bytes read" is compared does not include the discriminator.
+                    // the offset and the end of the array length. However, the offset could include
+                    // a function selector, but the "number of bytes read" should not include a
+                    // function selector.
                     (
                         array_length_var,
                         Expression::NumberLiteral {
@@ -1082,16 +1107,23 @@ pub(crate) trait AbiEncoding {
                             ty: ty.clone(),
                             var_no: allocated_array,
                         },
-                        bytes: array_length,
+                        bytes: array_length.clone(),
                     },
                 );
+                let total_size_with_trailing_padding = Expression::Add {
+                    loc: Codegen,
+                    ty: Type::Uint(32),
+                    overflowing: false,
+                    left: Box::new(total_size),
+                    right: Box::new(trailing_padding(&array_length)),
+                };
                 (
                     Expression::Variable {
                         loc: Codegen,
                         ty: ty.clone(),
                         var_no: allocated_array,
                     },
-                    total_size,
+                    total_size_with_trailing_padding,
                 )
             }
 
@@ -1741,6 +1773,7 @@ pub(crate) trait AbiEncoding {
                         kind: Builtin::ArrayLength,
                         args: vec![expr.clone()],
                     };
+                    let trailing_padding = trailing_padding(&array_size);
                     Expression::Add {
                         loc: Codegen,
                         ty: Uint(32),
@@ -1751,7 +1784,13 @@ pub(crate) trait AbiEncoding {
                             ty: Uint(32),
                             overflowing: false,
                             left: Box::new(array_length_size),
-                            right: Box::new(array_size),
+                            right: Box::new(Expression::Add {
+                                loc: Codegen,
+                                ty: Uint(32),
+                                overflowing: false,
+                                left: Box::new(array_size),
+                                right: Box::new(trailing_padding),
+                            }),
                         }),
                     }
                 } else {
@@ -2485,5 +2524,39 @@ impl StructType {
             total.add_assign(item.ty.memory_size_of(ns));
         }
         total
+    }
+}
+
+fn trailing_padding(len: &Expression) -> Expression {
+    let len_mod_32 = Expression::UnsignedModulo {
+        loc: Codegen,
+        ty: Type::Uint(32),
+        left: Box::new(len.clone()),
+        right: Box::new(Expression::NumberLiteral {
+            loc: Codegen,
+            ty: Type::Uint(32),
+            value: BigInt::from(32),
+        }),
+    };
+    let thirty_two_minus_len_mod_32 = Expression::Subtract {
+        loc: Codegen,
+        ty: Type::Uint(32),
+        overflowing: false,
+        left: Box::new(Expression::NumberLiteral {
+            loc: Codegen,
+            ty: Type::Uint(32),
+            value: BigInt::from(32),
+        }),
+        right: Box::new(len_mod_32),
+    };
+    Expression::UnsignedModulo {
+        loc: Codegen,
+        ty: Type::Uint(32),
+        left: Box::new(thirty_two_minus_len_mod_32),
+        right: Box::new(Expression::NumberLiteral {
+            loc: Codegen,
+            ty: Type::Uint(32),
+            value: BigInt::from(32),
+        }),
     }
 }

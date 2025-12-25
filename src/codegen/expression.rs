@@ -1779,7 +1779,7 @@ fn abi_encode_many(
         .map(|v| expression(v, cfg, contract_no, func, ns, vartab, opt))
         .collect::<Vec<Expression>>();
 
-    abi_encode(loc, args, ns, vartab, cfg, false).0
+    abi_encode(loc, args, ns, vartab, cfg, false, false).0
 }
 
 fn abi_encode_packed(
@@ -1797,7 +1797,7 @@ fn abi_encode_packed(
         .map(|v| expression(v, cfg, contract_no, func, ns, vartab, opt))
         .collect::<Vec<Expression>>();
 
-    let (encoded, _) = abi_encode(loc, packed, ns, vartab, cfg, true);
+    let (encoded, _) = abi_encode(loc, packed, ns, vartab, cfg, true, false);
     encoded
 }
 
@@ -1812,7 +1812,7 @@ fn encode_many_with_selector(
     let mut encoder_args: Vec<Expression> = Vec::with_capacity(args.len() + 1);
     encoder_args.push(selector);
     encoder_args.append(&mut args);
-    abi_encode(loc, encoder_args, ns, vartab, cfg, false).0
+    abi_encode(loc, encoder_args, ns, vartab, cfg, false, true).0
 }
 
 fn abi_encode_with_selector(
@@ -2508,7 +2508,7 @@ fn expr_builtin(
                 args_vec.push(arg);
             }
 
-            let args_encoded = abi_encode(loc, args_vec.clone(), ns, vartab, cfg, false);
+            let args_encoded = abi_encode(loc, args_vec.clone(), ns, vartab, cfg, false, false);
 
             let args_buf = args_encoded.0;
 
@@ -3609,7 +3609,7 @@ pub fn emit_function_call(
                     },
                 );
 
-                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false);
+                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false, true);
 
                 let flags = call_args
                     .flags
@@ -3697,7 +3697,7 @@ pub fn emit_function_call(
                 tys.insert(0, Type::Bytes(ns.target.selector_length()));
                 args.insert(0, selector);
 
-                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false);
+                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false, true);
 
                 let flags = call_args
                     .flags
