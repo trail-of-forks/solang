@@ -99,7 +99,7 @@ pub(super) fn call_constructor(
 
     args.append(&mut constructor_args);
 
-    let (encoded_args, _) = abi_encode(loc, args, ns, vartab, cfg, false);
+    let (encoded_args, _) = abi_encode(loc, args, ns, vartab, cfg, false, false);
     cfg.add(
         vartab,
         Instr::Constructor {

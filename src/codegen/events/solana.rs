@@ -47,7 +47,7 @@ impl EventEmitter for SolanaEventEmitter<'_> {
 
         let mut to_be_encoded: Vec<Expression> = vec![discriminator];
         to_be_encoded.append(&mut codegen_args);
-        let data = abi_encode(&self.loc, to_be_encoded, self.ns, vartab, cfg, false).0;
+        let data = abi_encode(&self.loc, to_be_encoded, self.ns, vartab, cfg, false, false).0;
 
         cfg.add(
             vartab,
