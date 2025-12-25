@@ -343,7 +343,8 @@ fn add_function_dispatch_case(
     );
 
     if !func_cfg.returns.is_empty() {
-        let (data, data_len) = abi_encode(&Loc::Codegen, returns_expr, ns, vartab, cfg, false);
+        let (data, data_len) =
+            abi_encode(&Loc::Codegen, returns_expr, ns, vartab, cfg, false, false);
         let zext_len = Expression::ZeroExt {
             loc: Loc::Codegen,
             ty: Type::Uint(64),

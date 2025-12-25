@@ -80,7 +80,8 @@ impl EventEmitter for StylusEventEmitter<'_> {
                 continue;
             }
 
-            let (value_encoded, size) = abi_encode(&loc, vec![value], self.ns, vartab, cfg, false);
+            let (value_encoded, size) =
+                abi_encode(&loc, vec![value], self.ns, vartab, cfg, false, false);
 
             vartab.new_dirty_tracker();
             let var_buffer = vartab.temp_anonymous(&Type::DynamicBytes);
@@ -160,7 +161,7 @@ impl EventEmitter for StylusEventEmitter<'_> {
                 initializer: Vec::new().into(),
             }
         } else {
-            abi_encode(&loc, data, self.ns, vartab, cfg, false).0
+            abi_encode(&loc, data, self.ns, vartab, cfg, false, false).0
         };
 
         cfg.add(

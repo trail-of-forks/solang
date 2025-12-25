@@ -249,7 +249,7 @@ fn exec_try(
                 let address = function.external_function_address();
 
                 args.insert(0, selector);
-                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false);
+                let (payload, _) = abi_encode(loc, args, ns, vartab, cfg, false, false);
 
                 let flags = call_args.flags.as_ref().map(|expr| {
                     expression(expr, cfg, callee_contract_no, Some(func), ns, vartab, opt)
