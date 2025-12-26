@@ -47,7 +47,11 @@ contract LinearDecrease is Abacus {
     event File(bytes32 indexed what, uint256 data);
 
     // --- Init ---
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -112,7 +116,11 @@ contract StairstepExponentialDecrease is Abacus {
     // --- Init ---
     // @notice: `cut` and `step` values must be correctly set for
     //     this contract to return a valid price
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -201,7 +209,11 @@ contract ExponentialDecrease is Abacus {
     // --- Init ---
     // @notice: `cut` value must be correctly set for
     //     this contract to return a valid price
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }

@@ -92,7 +92,11 @@ contract GemJoin {
     event Exit(address indexed usr, uint256 wad);
     event Cage();
 
-    constructor(address vat_, bytes32 ilk_, address gem_) public {
+    bool initialized = false;
+
+    function initialize(address vat_, bytes32 ilk_, address gem_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
@@ -147,7 +151,11 @@ contract DaiJoin {
     event Exit(address indexed usr, uint256 wad);
     event Cage();
 
-    constructor(address vat_, address dai_) public {
+    bool initialized = false;
+
+    function initialize(address vat_, address dai_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);

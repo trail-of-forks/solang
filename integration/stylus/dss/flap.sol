@@ -83,7 +83,11 @@ contract Flapper {
     );
 
     // --- Init ---
-    constructor(address vat_, address gem_) public {
+    bool initialized = false;
+
+    function initialize(address vat_, address gem_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         vat = VatLike(vat_);
         gem = GemLike(gem_);

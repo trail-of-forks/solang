@@ -65,7 +65,11 @@ contract Vat {
     uint256 public live;  // Active Flag
 
     // --- Init ---
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         live = 1;
     }

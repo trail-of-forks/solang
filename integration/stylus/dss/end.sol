@@ -280,7 +280,11 @@ contract End {
     event Cash(bytes32 indexed ilk, address indexed usr, uint256 wad);
 
     // --- Init ---
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         live = 1;
         emit Rely(msg.sender);

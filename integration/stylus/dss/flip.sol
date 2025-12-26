@@ -91,7 +91,11 @@ contract Flipper {
     );
 
     // --- Init ---
-    constructor(address vat_, address cat_, bytes32 ilk_) public {
+    bool initialized = false;
+
+    function initialize(address vat_, address cat_, bytes32 ilk_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         vat = VatLike(vat_);
         cat = CatLike(cat_);
         ilk = ilk_;

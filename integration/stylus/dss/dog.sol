@@ -68,7 +68,7 @@ contract Dog {
         uint256 dirt;  // Amt DAI needed to cover debt+fees of active auctions per ilk [rad]
     }
 
-    VatLike immutable public vat;  // CDP Engine
+    VatLike public vat;  // CDP Engine
 
     mapping (bytes32 => Ilk) public ilks;
 
@@ -99,7 +99,11 @@ contract Dog {
     event Cage();
 
     // --- Init ---
-    constructor(address vat_) public {
+    bool initialized = false;
+
+    function initialize(address vat_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         vat = VatLike(vat_);
         live = 1;
         wards[msg.sender] = 1;

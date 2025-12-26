@@ -60,7 +60,11 @@ contract Spotter {
     );
 
     // --- Init ---
-    constructor(address vat_) public {
+    bool initialized = false;
+
+    function initialize(address vat_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         wards[msg.sender] = 1;
         vat = VatLike(vat_);
         par = ONE;
