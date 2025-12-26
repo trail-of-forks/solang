@@ -4,7 +4,10 @@ set -euo pipefail
 
 for X in *.sol; do
   ../../../target/debug/solang compile --target stylus "$X" -O=less --no-constant-folding
-  brotli -f -q 11 "$(basename "$X" .sol).wasm" || true
+done
+
+for X in *.wasm; do
+  brotli -f -q 11 "$X"
 done
 
 ls -lrt *.br
