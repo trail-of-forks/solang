@@ -683,7 +683,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                 ptr_plus_offset(
                     bin,
                     contract_byte_ptr,
-                    bin.context.i32_type().const_int(19 as u64, false),
+                    bin.context.i32_type().const_int(19_u64, false),
                 ),
                 bin.context.i8_type().const_int(0x01, false),
             )
@@ -695,7 +695,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
             .builder
             .build_array_alloca(
                 bin.context.i8_type(),
-                i32_const!(32 + 32 + 32 + 32 as u64),
+                i32_const!(32 + 32 + 32 + 32_u64),
                 "buffer",
             )
             .unwrap();
@@ -1124,7 +1124,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                     .left()
                     .unwrap();
 
-                number.into()
+                number
             }
             Expression::Builtin {
                 kind: Builtin::ChainId,
@@ -1135,7 +1135,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                     .left()
                     .unwrap();
 
-                chainid.into()
+                chainid
             }
             Expression::Builtin {
                 kind: Builtin::ContractCode,
@@ -1286,7 +1286,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                     .left()
                     .unwrap();
 
-                gasleft.into()
+                gasleft
             }
             Expression::Builtin {
                 kind: Builtin::GasLimit,
@@ -1297,7 +1297,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                     .left()
                     .unwrap();
 
-                gaslimit.into()
+                gaslimit
             }
             Expression::Builtin {
                 kind: Builtin::GetAddress,
@@ -1408,7 +1408,7 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
                     .left()
                     .unwrap();
 
-                timestamp.into()
+                timestamp
             }
             Expression::Builtin {
                 kind: Builtin::Value,
