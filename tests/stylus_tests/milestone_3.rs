@@ -37,11 +37,10 @@ fn milestone_3() {
     println!("{}", &labeled_stdout);
 
     let balance = get(&labeled_stdout, "balance").unwrap();
-    assert_eq!(1000, u64::from_str_radix(balance, 10).unwrap());
+    assert_eq!(1000, balance.parse::<u64>().unwrap());
 
     let codehash = get(&labeled_stdout, "codehash")
-        .map(|s| s.strip_prefix("0x"))
-        .flatten()
+        .and_then(|s| s.strip_prefix("0x"))
         .unwrap();
 
     let stdout = call(dir, &address, ["getCode()"]).unwrap();
@@ -59,8 +58,8 @@ fn milestone_3() {
     let i = gasprice
         .bytes()
         .position(|c| c.is_ascii_whitespace())
-        .unwrap_or_else(|| gasprice.len());
-    assert_eq!(100000000, u64::from_str_radix(&gasprice[..i], 10).unwrap());
+        .unwrap_or(gasprice.len());
+    assert_eq!(100_000_000, gasprice[..i].parse::<u64>().unwrap());
 
     call(dir, &address, ["test_addmod()"]).unwrap();
 
@@ -73,6 +72,7 @@ fn milestone_3() {
     call(dir, &address, ["test_power()"]).unwrap();
 }
 
+#[allow(clippy::format_collect)]
 fn label(stdout: &str) -> String {
     const LABELS: &[&str] = &["balance", "codehash", "manual_codehash", "gasprice"];
     let lines = stdout.lines().collect::<Vec<_>>();

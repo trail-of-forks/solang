@@ -222,6 +222,7 @@ fn deploy_uniswap_factory(pair_base: &str, pair_creator: &str) -> (TempDir, Stri
     (tempdir, address)
 }
 
+#[allow(clippy::items_after_statements)]
 fn create_pair(dir: impl AsRef<Path>, factory: &str, erc20_a: &str, erc20_b: &str) -> String {
     let stdout = send(
         dir,
@@ -268,6 +269,6 @@ fn assert_roughly_starts_with(line: &str, prefix: &str) {
             "mismatch at index {i}\n
     line: {line}
   prefix: {prefix}"
-        )
+        );
     }
 }

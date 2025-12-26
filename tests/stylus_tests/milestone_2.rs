@@ -71,6 +71,7 @@ fn milestone_2() {
     assert!(line.contains(r#""topics":["0xa8142743f8f70a4c26f3691cf4ed59718381fb2f18070ec52be1f1022d855557"],"data":"0x0000000000000000000000000000000000000000000000000de0b6b3a7640000""#));
 }
 
+#[allow(clippy::format_collect)]
 fn label_test_block_output(stdout: &str) -> String {
     const LABELS: &[&str] = &[
         "gasleft",
@@ -90,6 +91,7 @@ fn label_test_block_output(stdout: &str) -> String {
         .collect()
 }
 
+#[allow(clippy::format_collect)]
 fn label_test_tstore_output(stdout: &str) -> String {
     const LABELS: &[&str] = &["sload", "tload"];
     let lines = stdout.lines().collect::<Vec<_>>();

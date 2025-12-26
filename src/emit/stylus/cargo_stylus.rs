@@ -15,7 +15,7 @@ pub fn compress_wasm(wasm: &[u8]) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
     /// EOF prefix used in Stylus compressed WASMs on-chain
     const EOF_PREFIX_NO_DICT: &str = "EFF00000";
 
-    let mut compressor = BrotliEncoder::new(&*wasm, BROTLI_COMPRESSION_LEVEL);
+    let mut compressor = BrotliEncoder::new(wasm, BROTLI_COMPRESSION_LEVEL);
     let mut compressed_bytes = vec![];
     compressor
         .read_to_end(&mut compressed_bytes)
