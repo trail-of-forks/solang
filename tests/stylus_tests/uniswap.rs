@@ -93,7 +93,7 @@ fn uniswap() {
     let stdout = call(dir, &outgoing, ["balanceOf(address)(uint256)", &callee]).unwrap();
     assert_eq!("0\n", stdout);
 
-    // smoelius: The `0x111...` is `swap`'s `data` argument. It must be non-empty for `swap` to call
+    // smoelius: The `0xff` is `swap`'s `data` argument. It must be non-empty for `swap` to call
     // `callee`. However, our `callee` does not use this data.
     let stdout = send(
         dir,
@@ -103,7 +103,7 @@ fn uniswap() {
             "0",
             OUTGOING,
             &callee,
-            "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "0xff",
             "--gas-limit=50000000",
         ],
     )
