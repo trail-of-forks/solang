@@ -33,5 +33,5 @@ fn create2() {
         ["test_create2()", "--value=1000000000000000000"],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 }

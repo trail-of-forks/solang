@@ -44,7 +44,7 @@ fn milestone_2() {
         ["test_create1()", "--value=1000000000000000000"],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     stdout = send(
         dir,
@@ -52,7 +52,7 @@ fn milestone_2() {
         ["test_create2()", "--value=1000000000000000000"],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     stdout = send(
         dir,
@@ -60,7 +60,7 @@ fn milestone_2() {
         ["test_value_sender()", "--value=1000000000000000000"],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     let line = stdout
         .lines()
