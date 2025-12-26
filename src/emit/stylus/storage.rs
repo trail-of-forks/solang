@@ -78,7 +78,7 @@ impl StorageSlot for StylusTarget {
 
         match ty {
             Type::Ref(ty) => {
-                self.storage_load_slot(bin, ty, slot, slot_ptr, function, &storage_type)
+                self.storage_load_slot(bin, ty, slot, slot_ptr, function, storage_type)
             }
             Type::Array(elem_ty, dim) => {
                 if let Some(ArrayLength::Fixed(d)) = dim.last() {
@@ -118,7 +118,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             let val = if ty.deref_memory().is_fixed_reference_type(bin.ns) {
@@ -148,7 +148,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             )
                             .into_int_value(),
                             bin.context.i32_type(),
@@ -212,7 +212,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             let entry = if elem_ty.deref_memory().is_fixed_reference_type(bin.ns) {
@@ -259,7 +259,7 @@ impl StorageSlot for StylusTarget {
                         slot,
                         slot_ptr,
                         function,
-                        &storage_type,
+                        storage_type,
                     );
 
                     let elem = unsafe {
@@ -306,7 +306,7 @@ impl StorageSlot for StylusTarget {
                     .context
                     .custom_width_int_type(bin.ns.target.ptr_size() as u32);
 
-                let ret = self.get_storage_type_int(bin, function, slot_ptr, ptr_ty, &storage_type);
+                let ret = self.get_storage_type_int(bin, function, slot_ptr, ptr_ty, storage_type);
 
                 bin.builder
                     .build_int_to_ptr(ret, bin.context.ptr_type(AddressSpace::default()), "")
@@ -328,7 +328,7 @@ impl StorageSlot for StylusTarget {
             Type::Address(_) | Type::Contract(_) => {
                 bin.builder.build_store(slot_ptr, *slot).unwrap();
 
-                let ret = self.get_storage_address(bin, slot_ptr, &storage_type);
+                let ret = self.get_storage_address(bin, slot_ptr, storage_type);
 
                 *slot = bin
                     .builder
@@ -339,7 +339,7 @@ impl StorageSlot for StylusTarget {
             }
             Type::UserType(no) => {
                 let ty = &bin.ns.user_types[*no].ty;
-                self.storage_load_slot(bin, ty, slot, slot_ptr, function, &storage_type)
+                self.storage_load_slot(bin, ty, slot, slot_ptr, function, storage_type)
             }
             _ => {
                 bin.builder.build_store(slot_ptr, *slot).unwrap();
@@ -349,7 +349,7 @@ impl StorageSlot for StylusTarget {
                     function,
                     slot_ptr,
                     bin.llvm_type(ty.deref_any()).into_int_type(),
-                    &storage_type,
+                    storage_type,
                 );
 
                 *slot = bin
@@ -410,7 +410,7 @@ impl StorageSlot for StylusTarget {
                                 slot_ptr,
                                 elem.into(),
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             if !elem_ty.is_reference_type(bin.ns) {
@@ -453,7 +453,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             )
                             .into_int_value(),
                             bin.context.i32_type(),
@@ -485,7 +485,7 @@ impl StorageSlot for StylusTarget {
                         slot_ptr,
                         new_slot,
                         bin.llvm_type(&slot_ty),
-                        &storage_type,
+                        storage_type,
                     );
 
                     self.keccak256_hash(
@@ -547,7 +547,7 @@ impl StorageSlot for StylusTarget {
                                 slot_ptr,
                                 elem.into(),
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             if !elem_ty.is_reference_type(bin.ns) {
@@ -577,7 +577,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             if !elem_ty.is_reference_type(bin.ns) {
@@ -628,7 +628,7 @@ impl StorageSlot for StylusTarget {
                         slot_ptr,
                         elem.into(),
                         function,
-                        &storage_type,
+                        storage_type,
                     );
 
                     if !field.ty.is_reference_type(bin.ns)
@@ -679,7 +679,7 @@ impl StorageSlot for StylusTarget {
 
                 bin.builder.build_store(slot_ptr, *slot).unwrap();
 
-                self.set_storage(bin, slot_ptr, m, ptr_ty.as_basic_type_enum(), &storage_type);
+                self.set_storage(bin, slot_ptr, m, ptr_ty.as_basic_type_enum(), storage_type);
             }
             Type::Address(_) | Type::Contract(_) => {
                 if dest.is_pointer_value() {
@@ -690,7 +690,7 @@ impl StorageSlot for StylusTarget {
                         slot_ptr,
                         dest.into_pointer_value(),
                         bin.llvm_type(ty),
-                        &storage_type,
+                        storage_type,
                     );
                 } else {
                     let address = bin
@@ -709,13 +709,13 @@ impl StorageSlot for StylusTarget {
                         slot_ptr,
                         address,
                         bin.address_type().as_basic_type_enum(),
-                        &storage_type,
+                        storage_type,
                     );
                 }
             }
             Type::UserType(no) => {
                 let ty = &bin.ns.user_types[*no].ty;
-                self.storage_store_slot(bin, ty, slot, slot_ptr, dest, function, &storage_type)
+                self.storage_store_slot(bin, ty, slot, slot_ptr, dest, function, storage_type)
             }
             _ => {
                 // dbg!(ty);
@@ -739,7 +739,7 @@ impl StorageSlot for StylusTarget {
                     slot_ptr,
                     dest,
                     bin.llvm_type(ty.deref_any()),
-                    &storage_type,
+                    storage_type,
                 );
             }
         }
@@ -775,7 +775,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             if !ty.is_reference_type(bin.ns) {
@@ -802,7 +802,7 @@ impl StorageSlot for StylusTarget {
                         function,
                         slot_ptr,
                         bin.value_type(),
-                        &storage_type,
+                        storage_type,
                     );
 
                     // we need to hash the length slot in order to get the slot of the first
@@ -835,7 +835,7 @@ impl StorageSlot for StylusTarget {
                                 slot,
                                 slot_ptr,
                                 function,
-                                &storage_type,
+                                storage_type,
                             );
 
                             if !ty.is_reference_type(bin.ns) {
@@ -858,7 +858,7 @@ impl StorageSlot for StylusTarget {
                         slot,
                         slot_ptr,
                         function,
-                        &storage_type,
+                        storage_type,
                     );
                 }
             }
@@ -870,7 +870,7 @@ impl StorageSlot for StylusTarget {
                         slot,
                         slot_ptr,
                         function,
-                        &storage_type,
+                        storage_type,
                     );
 
                     if !field.ty.is_reference_type(bin.ns)

@@ -49,7 +49,7 @@ fn milestone_3() {
         .strip_prefix("0x0000000000000000000000000000000000000000000000000000000000000020")
         .unwrap();
     let len = usize::from_str_radix(&len_prefixed_code[..64], 16).unwrap();
-    let code = hex::decode(&len_prefixed_code[64..].trim_end()).unwrap();
+    let code = hex::decode(len_prefixed_code[64..].trim_end()).unwrap();
     assert!(len < code.len());
     assert!(code[len..].iter().all(|&x| x == 0));
     let digest = keccak256(&code[..len]);

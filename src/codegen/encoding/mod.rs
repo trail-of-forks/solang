@@ -995,7 +995,7 @@ pub(crate) trait AbiEncoding {
                         le_to_be: false,
                     };
                     read_value = read_value.cast(&Type::Uint(160), ns);
-                    read_value = read_value.cast(&ty, ns);
+                    read_value = read_value.cast(ty, ns);
                 }
 
                 let read_var = vartab.temp_anonymous(ty);
