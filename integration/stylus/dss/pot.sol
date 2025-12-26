@@ -76,7 +76,7 @@ contract Pot {
         vat = VatLike(vat_);
         dsr = ONE;
         chi = ONE;
-        rho = now;
+        rho = block.timestamp;
         live = 1;
     }
 
@@ -125,7 +125,7 @@ contract Pot {
     // --- Administration ---
     function file(bytes32 what, uint256 data) external auth {
         require(live == 1, "Pot/not-live");
-        require(now == rho, "Pot/rho-not-updated");
+        require(block.timestamp == rho, "Pot/rho-not-updated");
         if (what == "dsr") dsr = data;
         else revert("Pot/file-unrecognized-param");
     }
@@ -142,17 +142,17 @@ contract Pot {
 
     // --- Savings Rate Accumulation ---
     function drip() external returns (uint tmp) {
-        require(now >= rho, "Pot/invalid-now");
-        tmp = _rmul(_rpow(dsr, now - rho, ONE), chi);
+        require(block.timestamp >= rho, "Pot/invalid-block.timestamp");
+        tmp = _rmul(_rpow(dsr, block.timestamp - rho, ONE), chi);
         uint chi_ = _sub(tmp, chi);
         chi = tmp;
-        rho = now;
+        rho = block.timestamp;
         vat.suck(address(vow), address(this), _mul(Pie, chi_));
     }
 
     // --- Savings Dai Management ---
     function join(uint wad) external {
-        require(now == rho, "Pot/rho-not-updated");
+        require(block.timestamp == rho, "Pot/rho-not-updated");
         pie[msg.sender] = _add(pie[msg.sender], wad);
         Pie             = _add(Pie,             wad);
         vat.move(msg.sender, address(this), _mul(chi, wad));

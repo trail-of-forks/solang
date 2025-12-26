@@ -159,7 +159,7 @@ interface CureLike {
            cage administrator.
 
            This takes a fairly predictable time to occur but with altered
-           auction dynamics due to the now varying price of dai.
+           auction dynamics due to the block.timestamp varying price of dai.
 
        ii) `skip`: cancel all ongoing auctions and seize the collateral.
 
@@ -211,7 +211,7 @@ interface CureLike {
         - adjusts the `fix` in the case of deficit / surplus
 
     At this point we have computed the final price for each collateral
-    type and dai holders can now turn their dai into collateral. Each
+    type and dai holders can block.timestamp turn their dai into collateral. Each
     unit dai can claim a fixed basket of collateral.
 
     Dai holders must first `pack` some dai into a `bag`. Once packed,
