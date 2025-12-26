@@ -29,7 +29,7 @@ fn uniswap() {
     let incoming = (&erc20_a).min(&erc20_b);
     let outgoing = (&erc20_a).max(&erc20_b);
 
-    let (_callee_dir, callee) = deploy_callee(&incoming);
+    let (_callee_dir, callee) = deploy_callee(incoming);
 
     let (_pair_base_dir, pair_base) = deploy_pair_base();
 
@@ -90,7 +90,7 @@ fn uniswap() {
     let stdout = call(dir, incoming, ["balanceOf(address)(uint256)", &callee]).unwrap();
     assert_eq!(INCOMING, stdout.split_ascii_whitespace().next().unwrap());
 
-    let stdout = call(dir, &outgoing, ["balanceOf(address)(uint256)", &callee]).unwrap();
+    let stdout = call(dir, outgoing, ["balanceOf(address)(uint256)", &callee]).unwrap();
     assert_eq!("0\n", stdout);
 
     // smoelius: The `0xff` is `swap`'s `data` argument. It must be non-empty for `swap` to call
@@ -184,7 +184,7 @@ fn deploy_pair_creator(pair_base: &str) -> (TempDir, String) {
         &address,
         [
             "createPairWithBase(address,address,address,uint256)(address)",
-            &pair_base,
+            pair_base,
             "0000000000000000000000000000000000000001",
             "0000000000000000000000000000000000000002",
             "1",
@@ -225,11 +225,11 @@ fn deploy_uniswap_factory(pair_base: &str, pair_creator: &str) -> (TempDir, Stri
 fn create_pair(dir: impl AsRef<Path>, factory: &str, erc20_a: &str, erc20_b: &str) -> String {
     let stdout = send(
         dir,
-        &factory,
+        factory,
         [
             "createPair(address,address)(address)",
-            &erc20_a,
-            &erc20_b,
+            erc20_a,
+            erc20_b,
             "--value=1000000000000000000",
         ],
     )
