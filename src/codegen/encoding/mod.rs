@@ -239,6 +239,11 @@ pub(crate) trait AbiEncoding {
         match expr_ty {
             Type::Contract(_) | Type::Address(_) => {
                 if ns.target == Target::Stylus {
+                    let expr = if matches!(expr_ty, Type::Contract(_)) {
+                        expr.cast(&Type::Address(false), ns)
+                    } else {
+                        expr.clone()
+                    };
                     self.encode_int(
                         &expr.cast(&Type::Uint(160), ns).cast(&Type::Uint(256), ns),
                         buffer,
