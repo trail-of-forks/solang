@@ -59,8 +59,8 @@ contract Clipper {
     }
 
     // --- Data ---
-    bytes32  immutable public ilk;   // Collateral type of this Clipper
-    VatLike  immutable public vat;   // Core CDP Engine
+    bytes32  public ilk;   // Collateral type of this Clipper
+    VatLike  public vat;   // Core CDP Engine
 
     DogLike     public dog;      // Liquidation module
     address     public vow;      // Recipient of dai raised in auctions
@@ -134,7 +134,11 @@ contract Clipper {
     event Yank(uint256 id);
 
     // --- Init ---
-    constructor(address vat_, address spotter_, address dog_, bytes32 ilk_) public {
+    bool initialized = false;
+
+    function initialize(address vat_, address spotter_, address dog_, bytes32 ilk_) public {
+        require(!initialized, "already initialized");
+        initialized = true;
         vat     = VatLike(vat_);
         spotter = SpotterLike(spotter_);
         dog     = DogLike(dog_);

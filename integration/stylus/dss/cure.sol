@@ -58,7 +58,11 @@ contract Cure {
         require((z = x - y) <= x, "Cure/sub-underflow");
     }
 
-    constructor() public {
+    bool initialized = false;
+
+    function initialize() public {
+        require(!initialized, "already initialized");
+        initialized = true;
         live = 1;
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
