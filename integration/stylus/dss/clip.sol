@@ -256,7 +256,7 @@ contract Clipper {
         // incentive to kick auction
         uint256 _tip  = tip;
         uint256 _chip = chip;
-        uint256 coin;
+        uint256 coin = 0;
         if (_tip > 0 || _chip > 0) {
             coin = add(_tip, wmul(tab, _chip));
             vat.suck(vow, kpr, coin);
@@ -295,7 +295,7 @@ contract Clipper {
         // incentive to redo auction
         uint256 _tip  = tip;
         uint256 _chip = chip;
-        uint256 coin;
+        uint256 coin = 0;
         if (_tip > 0 || _chip > 0) {
             uint256 _chost = chost;
             if (tab >= _chost && mul(lot, feedPrice) >= _chost) {
