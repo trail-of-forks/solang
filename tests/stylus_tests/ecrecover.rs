@@ -21,5 +21,5 @@ fn ecrecover() {
     let dir = &tempdir;
 
     let stdout = call(dir, &address, ["test_ecrecover()"]).unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 }

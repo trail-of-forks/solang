@@ -23,17 +23,17 @@ fn erc20() {
     let balance = concat!("1000000", "000000000000000000");
 
     let stdout = call(dir, &address, ["totalSupply()(uint256)"]).unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
     assert_eq!("0\n", stdout);
 
     let stdout = send(dir, &address, ["initialize(uint256)", balance]).unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     // smoelius: Calling `initialize` a second time should revert.
     let error = send(dir, &address, ["initialize(uint256)", balance]).unwrap_err();
-    println!("{:?}", error);
+    println!("{error:?}");
 
     let stdout = call(dir, &address, ["totalSupply()(uint256)"]).unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
     assert_eq!("1000000000000000000000000 [1e24]\n", stdout);
 }

@@ -39,23 +39,23 @@ fn uniswap() {
 
     let dir = &factory_dir;
 
-    println!("      erc20_a: {}", erc20_a);
-    println!("      erc20_b: {}", erc20_b);
-    println!("    pair_base: {}", pair_base);
-    println!(" pair_creator: {}", pair_creator);
-    println!("      factory: {}", factory);
+    println!("      erc20_a: {erc20_a}");
+    println!("      erc20_b: {erc20_b}");
+    println!("    pair_base: {pair_base}");
+    println!(" pair_creator: {pair_creator}");
+    println!("      factory: {factory}");
 
     let pair = create_pair(dir, &factory, &erc20_a, &erc20_b);
-    println!("         pair: 0x{}", pair);
+    println!("         pair: 0x{pair}");
 
     let stdout = call(dir, &pair, ["base()(address)"]).unwrap();
-    println!("    pair.base: {}", stdout);
+    println!("    pair.base: {stdout}");
 
     let stdout = call(dir, &pair, ["token0()(address)"]).unwrap();
-    println!("  pair.token0: {}", stdout);
+    println!("  pair.token0: {stdout}");
 
     let stdout = call(dir, &pair, ["token1()(address)"]).unwrap();
-    println!("  pair.token1: {}", stdout);
+    println!("  pair.token1: {stdout}");
 
     // smoelius: `MINIMUM_LIQUIDITY` is 1000. If the amount of each token transferred to the pair is
     // more than this, then `MINIMUM_LIQUIDITY` will be satisfied.
@@ -73,7 +73,7 @@ fn uniswap() {
         ["mint(address)", ADDRESS, "--gas-limit=50000000"],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     let stdout = call(dir, &pair, ["balanceOf(address)(uint256)", ADDRESS]).unwrap();
     assert_eq!("9000\n", stdout);
@@ -108,7 +108,7 @@ fn uniswap() {
         ],
     )
     .unwrap();
-    println!("{}", stdout);
+    println!("{stdout}");
 
     let stdout = call(dir, incoming, ["balanceOf(address)(uint256)", &callee]).unwrap();
     assert_eq!("0\n", stdout);
