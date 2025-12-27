@@ -125,7 +125,16 @@ impl<'a> TargetRuntime<'a> for StylusTarget {
         slot: &mut IntValue<'a>,
         function: FunctionValue<'a>,
     ) {
-        unimplemented!()
+        let slot_ptr = bin.builder.build_alloca(slot.get_type(), "slot").unwrap();
+
+        self.storage_delete_slot(
+            bin,
+            ty,
+            slot,
+            slot_ptr,
+            function,
+            &Some(StorageType::Persistent(None)),
+        );
     }
 
     // Bytes and string have special storage layout

@@ -58,11 +58,14 @@ impl StorageSlot for StylusTarget {
     fn storage_delete_single_slot(&self, bin: &Binary, slot: PointerValue) {
         emit_context!(bin);
 
-        call!("clear_storage", &[slot.into(), i32_const!(32).into()])
-            .try_as_basic_value()
-            .left()
-            .unwrap()
-            .into_int_value();
+        let zero = bin.value_type().const_zero();
+        let zero_ptr = bin
+                        .builder
+                        .build_alloca(bin.value_type(), "zero_ptr")
+                        .unwrap();
+        bin.builder.build_store(zero_ptr, zero).unwrap();
+
+        self.set_storage(bin, slot, zero_ptr, bin.value_type().into(), &None);
     }
 
     fn storage_load_slot<'a>(
