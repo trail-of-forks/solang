@@ -2,6 +2,7 @@ mod api;
 mod arb_wasm;
 mod counter;
 mod create2;
+mod dss;
 mod ecrecover;
 mod erc20;
 mod milestone_1;
